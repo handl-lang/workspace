@@ -31,10 +31,8 @@ coverage run -m pytest tests/ -q && coverage report -m   # only when floor set
 
 ## License
 
-{{LICENSE}}
+MIT.
 
 ## Documentation
 
-<!-- Only when a published docs site exists. Otherwise omit. -->
-
-Published site (Diátaxis): <https://handl-lang.github.io/docs/{{DOCS_SLUG}}/>
+<https://handl-lang.github.io/docs/{{DOCS_SLUG}}/>

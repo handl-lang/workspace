@@ -20,10 +20,8 @@ them from sibling checkouts for local development.
 
 ## License
 
-{{LICENSE}}
+MIT.
 
 ## Documentation
 
-<!-- Only when a published docs site exists. Otherwise omit. -->
-
-Published site (Diátaxis): <https://handl-lang.github.io/docs/{{DOCS_SLUG}}/>
+<https://handl-lang.github.io/docs/{{DOCS_SLUG}}/>

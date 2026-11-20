@@ -6,4 +6,4 @@
 
 ## License
 
-{{LICENSE}}
+MIT.
