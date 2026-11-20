@@ -18,22 +18,40 @@ gate.py        vendored python gate — copy to `scripts/gate.py` in each
 
 ## Templates
 
-One template per repo family — the `prefix-*` **is** the component kind, so
-the prefix picks the template; the toolchain picks the variant.
+The `prefix-*` **is** the component kind; generic family template +
+specialized sub-template when a prefix grows variants (`tool.md` →
+`tool-sdkgen.md`, `engine.md` → `engine-compile.md`).
 
 | Template | Repos |
 |---|---|
 | `engine.md` | `engine`, `engine-*` — language-operation engines (Rust crates) |
-| `compile.md` | `compile-*` — compiler backends/emitters (Rust crates) |
-| `ext.md` | `ext-*` — `hnl` dynamic extensions, `libhnl_ext_*.so` cdylibs |
-| `sdkgen.md` | `sdkgen-*` — SDK/binding generators |
-| `kit-rust.md` | `kit-{core,data-prelude,eqsat,ffi,lang,pkg,prelude,prelude-lang,server,stdlib,test}` — kit workspaces |
-| `kit-python.md` | `kit-{carriers,cuda,discovery,host-tensor,kernel-ir,onnx,torch}` — Python/uv kits on the eqsat/graphopt substrate |
-| `lib-hnl.md` | `lib-*` with `pkg.hnl` or `handl-packages/` — Handl stdlib packages |
-| `lib-rust.md` | `lib-*` pure-Rust crates (no `pkg.hnl`/`handl-packages/`) |
-| `host.md` | `host-{cli,lsp,tensor}` — host binaries/servers |
-| `python.md` | `eqsat`, `kernelopt`, `gamekit`, `discoverykit`, `mlopt-product`, `lib-kernel-ir`, `lib-triton-qgemv` — Python/uv repos outside `kit-*` |
-| `bare.md` | everything else — `host`, `kernel`, `egraph`, `discovery`, `docs`, `automation`, `test`, `source-onnx`, `slidev-theme`, `extension-*`, `pitch-*`, `mlopt` (mixed rust+py) |
+| `engine-compile.md` | `engine-compile-*` — compiler backends/emitters; **target name for today's `compile-*`** |
+| `tool.md` | `tool-*` — CLI/dev tools |
+| `tool-sdkgen.md` | `tool-sdkgen-*` — SDK/binding generators; **target name for today's `sdkgen-*`** |
+| `lib.md` | `lib-*` — Handl stdlib packages (**target: `.hnl` only**) |
+| `lib-rust.md` | transitional — `lib-*` pure-Rust crates pending the `.hnl` migration |
+| `kit.md` | `kit-*` — kit declarations, manifests-as-data (**target: `.hnl`/data only**) |
+| `kit-rust.md` | transitional — `kit-*` Rust workspaces pending migration |
+| `kit-python.md` | transitional — `kit-*` Python kits (torch stack); likely relocates out of `kit-*` |
+| `host.md` | `host`, `host-*` — host is **distribution only** (binaries, servers) |
+| `pitch.md` | `pitch-*` — Slidev decks |
+| `python.md` | `eqsat`, `kernelopt`, `gamekit`, `discoverykit`, `mlopt-product`, `research-*`, misc python |
+| `bare.md` | everything else — `kernel`, `egraph`, `discovery`, `docs`, `automation`, `test`, `source-onnx`, `slidev-theme-handl` (rename pending), `extension-*` |
+
+## Pending renames (see myco P-001 / weekend epic)
+
+- `sdkgen-*` → `tool-sdkgen-*` (5 repos)
+- `compile-*` → `engine-compile-*` (8 repos)
+- `slidev-theme` → `slidev-theme-handl`
+- `mlopt` → `research-mlopt`
+- `host-tensor` → not a host — target `lib-*`/`engine-*` (decision pending;
+  tensor is probably `lib-tensor`-adjacent, not distribution)
+- `kit-*`/`lib-*` Rust+Python crates → `.hnl`-only packages; bindings via
+  `tool-sdkgen-*` where needed — refactor planned on demand, not big-bang
+
+## Frozen
+
+- `kernel` — solid; do not change without a great reason.
 
 ## Placeholders
 
@@ -61,6 +79,9 @@ docs-site slug (omit section if no site) · `{{PACKAGE}}` / `{{SRC_DIR}}` /
 - **Python repos gate through `uv run scripts/gate.py`** — vendor `gate.py`
   as `scripts/gate.py`; `ci.sh` calls it. `--coverage` enables the coverage
   step for repos with a `fail_under` floor.
+- **`kit-*`/`lib-*` target `.hnl`-only** — no Rust, no Python; interop via
+  `tool-sdkgen-*` bindings. Transitional templates stay until each repo
+  migrates.
 
 ## Repo metadata (applies to every repo, not just READMEs)
 

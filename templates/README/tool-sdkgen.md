@@ -11,9 +11,9 @@
 cargo xtask gate        # fmt --check → clippy -D warnings → test → doc
 ```
 
-`cargo xtask` wraps the repo's `xtask/` crate (`fmt`, `clippy`, `test`, `doc`,
-`check`, `gate`); `ci.sh` is the gate entry. Deps resolve from git, so no
-sibling checkouts are needed; a plain clone test-runs as-is.
+`cargo xtask` wraps the repo's `xtask/` crate; `ci.sh` is the gate entry.
+Deps resolve from git, so no sibling checkouts are needed; a plain clone
+test-runs as-is.
 
 ## License
 
