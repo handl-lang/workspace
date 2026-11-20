@@ -27,16 +27,11 @@ or as a git dependency:
 ## Verify
 
 ```sh
-.venv/bin/python -m pytest tests/ -q
-.venv/bin/ruff check {{SRC_DIR}}        # src/ or packages/
-.venv/bin/ruff format --check {{SRC_DIR}}
-.venv/bin/ty check
-.venv/bin/lint-imports                  # only when import-linter contracts exist
-coverage run -m pytest tests/ -q && coverage report -m   # only when floor set
+uv run scripts/gate.py      # pytest → ruff → ty → lint-imports → coverage floor
 ```
 
-<!-- Keep only the commands the repo actually has configured (check
-     pyproject.toml / ci.sh). -->
+`scripts/gate.py` is a stdlib runner over the dev toolchain; `ci.sh` is the
+gate entry. Keep only the steps the repo configures (check `pyproject.toml`).
 
 ## License
 

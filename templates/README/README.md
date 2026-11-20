@@ -1,8 +1,20 @@
 # README templates
 
-Canonical skeletons for crate-repo `README.md` files in `handl-lang/*`.
-Each repo is its own git repo; templates are rendered per repo and committed
-there — this directory is the single source of truth for structure.
+Canonical skeletons for crate-repo `README.md` files in `handl-lang/*`, plus
+the vendored gate tooling each repo standardizes on. Each repo is its own git
+repo; templates and tooling are rendered per repo and committed there — this
+directory is the single source of truth.
+
+## Layout
+
+```text
+{family}.md    README skeleton per repo family
+xtask/         vendored `cargo xtask` crate — copy into each Rust repo
+               (alias: `xtask = "run --manifest-path xtask/Cargo.toml --"`
+               in `.cargo/config.toml`)
+gate.py        vendored python gate — copy to `scripts/gate.py` in each
+               uv/python repo (`uv run scripts/gate.py`)
+```
 
 ## Templates
 
@@ -44,6 +56,11 @@ docs-site slug (omit section if no site) · `{{PACKAGE}}` / `{{SRC_DIR}}` /
   sections; move/reorder to match the family skeleton.
 - Omit optional sections (Documentation, Gate variant, Packages) when they
   don't apply rather than leaving placeholders.
+- **Rust repos gate through `cargo xtask`** — vendor `xtask/` + the
+  `.cargo/config.toml` alias; `ci.sh` calls `cargo xtask gate`.
+- **Python repos gate through `uv run scripts/gate.py`** — vendor `gate.py`
+  as `scripts/gate.py`; `ci.sh` calls it. `--coverage` enables the coverage
+  step for repos with a `fail_under` floor.
 
 ## Repo metadata (applies to every repo, not just READMEs)
 

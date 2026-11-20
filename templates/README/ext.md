@@ -9,10 +9,10 @@
 ## Development
 
 ```bash
-cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+cargo xtask gate        # fmt --check → clippy -D warnings → test → doc
 ```
 
-`ci.sh` is the gate (fmt → clippy → test → doc). The crate builds a
+`cargo xtask` wraps the repo's `xtask/` crate; `ci.sh` is the gate entry. The crate builds a
 `cdylib` + `rlib`; `cargo test` links the `rlib` statically.
 
 ## License

@@ -8,10 +8,11 @@
 ## Development
 
 ```bash
-cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+cargo xtask gate        # fmt --check → clippy -D warnings → test → doc
 ```
 
-`ci.sh` is the gate (fmt → clippy → test → doc). Deps resolve from git, so no
+`cargo xtask` wraps the repo's `xtask/` crate (`fmt`, `clippy`, `test`, `doc`,
+`check`, `gate`); `ci.sh` is the gate entry. Deps resolve from git, so no
 sibling checkouts are needed; a plain clone test-runs as-is.
 
 ## License
