@@ -5,7 +5,7 @@
 ## Layout
 
 ```text
-{{TREE}}  <!-- src/*.hnl, pkg.hnl, ci.sh / scripts/hnl-gate.sh -->
+{{TREE}}  <!-- src/*.hnl, pkg.hnl, handl-packages/, ci.sh / scripts/hnl-gate.sh -->
 ```
 
 ## Gate

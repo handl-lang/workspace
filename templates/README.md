@@ -4,22 +4,32 @@ Canonical skeletons for crate-repo `README.md` files in `handl-lang/*`.
 Each repo is its own git repo; templates are rendered per repo and committed
 there — this directory is the single source of truth for structure.
 
-## Families
+## Templates
 
-| Template | Use when |
+One template per repo family — the `prefix-*` **is** the component kind, so
+the prefix picks the template; the toolchain picks the variant.
+
+| Template | Repos |
 |---|---|
-| `rust-crate.md` | Single-crate Rust repo (`Cargo.toml`, no `crates/` workspace, no `pkg.hnl`/`handl-packages/`) — most `engine-*`, `ext-*`, `lib-*` Rust, `compile-*`, `sdkgen-*` |
-| `rust-workspace.md` | Rust workspace (`crates/` members) — `kit-*` Rust, `host-cli`, `compile-handl` |
-| `handl-pkg.md` | Handl package (`pkg.hnl` or `handl-packages/`) — most `lib-*` |
-| `python-pkg.md` | Python/uv repo (`pyproject.toml`, no Cargo) — `eqsat`, most `kit-*` Python, `kernelopt`, `gamekit`, `discoverykit`, `mlopt-product` |
-| `fallback.md` | Anything else — minimal title + desc + license |
+| `engine.md` | `engine`, `engine-*` — language-operation engines (Rust crates) |
+| `compile.md` | `compile-*` — compiler backends/emitters (Rust crates) |
+| `ext.md` | `ext-*` — `hnl` dynamic extensions, `libhnl_ext_*.so` cdylibs |
+| `sdkgen.md` | `sdkgen-*` — SDK/binding generators |
+| `kit-rust.md` | `kit-{core,data-prelude,eqsat,ffi,lang,pkg,prelude,prelude-lang,server,stdlib,test}` — kit workspaces |
+| `kit-python.md` | `kit-{carriers,cuda,discovery,host-tensor,kernel-ir,onnx,torch}` — Python/uv kits on the eqsat/graphopt substrate |
+| `lib-hnl.md` | `lib-*` with `pkg.hnl` or `handl-packages/` — Handl stdlib packages |
+| `lib-rust.md` | `lib-*` pure-Rust crates (no `pkg.hnl`/`handl-packages/`) |
+| `host.md` | `host-{cli,lsp,tensor}` — host binaries/servers |
+| `python.md` | `eqsat`, `kernelopt`, `gamekit`, `discoverykit`, `mlopt-product`, `lib-kernel-ir`, `lib-triton-qgemv` — Python/uv repos outside `kit-*` |
+| `bare.md` | everything else — `host`, `kernel`, `egraph`, `discovery`, `docs`, `automation`, `test`, `source-onnx`, `slidev-theme`, `extension-*`, `pitch-*`, `mlopt` (mixed rust+py) |
 
 ## Placeholders
 
 `{{REPO_NAME}}` dir name · `{{ONE_LINE_DESCRIPTION}}` / `{{DESCRIPTION_PARAGRAPH}}`
-from Cargo `description`/AGENTS.md · `{{TREE}}` top-level layout ·
-`{{DOCS_SLUG}}` docs-site slug (omit section if no site) · `{{PACKAGE}}` /
-`{{SRC_DIR}}` python layout.
+from Cargo `description`/AGENTS.md · `{{FAMILY_BLURB}}` what makes the repo a
+member of its prefix family · `{{TREE}}` top-level layout · `{{DOCS_SLUG}}`
+docs-site slug (omit section if no site) · `{{PACKAGE}}` / `{{SRC_DIR}}` /
+`{{STACK_NOTE}}` python layout · `{{OPTIONAL_EXTRA_SECTIONS}}` for `bare`.
 
 ## Rules
 
@@ -40,7 +50,9 @@ from Cargo `description`/AGENTS.md · `{{TREE}}` top-level layout ·
 - `Cargo.toml [package]`: `description`, `license = "MIT"`, `repository`,
   `homepage`/`documentation` (docs hub URL), `keywords`, `categories`,
   `readme = "README.md"` where missing.
-- `pkg.hnl`: package annotation fields alongside `modules`/`deps` (schema TBD
-  — see plan).
+- `pkg.hnl`: package annotation fields alongside `modules`/`deps` — schema in
+  myco proposal P-001 (`name`, `description`, `license`, `keywords`,
+  `homepage`; functional keys first, annotation values must not contain the
+  substrings `deps`/`modules`/`entry`).
 - `package.json`: `name`, `version`, `description`, `license`, `repository`,
   `homepage`.

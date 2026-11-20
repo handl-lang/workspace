@@ -2,6 +2,9 @@
 
 {{ONE_LINE_DESCRIPTION}}
 
+{{FAMILY_BLURB}}  <!-- which SDK/backend this generator produces and from what input
+     (*.hnl, *.webidl, *.clispec.yaml, live --help probe, …) -->
+
 ## Development
 
 ```bash
