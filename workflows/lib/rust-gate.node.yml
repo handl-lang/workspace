@@ -1,0 +1,59 @@
+# lib/rust-gate.node.yml — canonical Rust gate fragment.
+#
+# The baseline cargo floor for repos without a bespoke ci.sh:
+# fmt --check → clippy -D warnings → test. Repos with heavier or
+# different gates keep their own ci.sh — this fragment is the
+# *standard lane* campaigns compose for plain Rust checkouts.
+#
+# Runs in the dev checkout (campaigns are host-side; worktree
+# sibling plumbing is ci.sh/bupha's job, not ours).
+#
+# Parent owns the event contract — declare `on:`/`emits:` and
+# `params.emit` at the include site; override `params.repo`,
+# `params.results`, `params.family`, `params.timeout`,
+# `params.extra` as needed. When `params.results` is set, every
+# run appends {"family","repo","rc","secs"} to that JSONL file
+# (skipped family-guard exits record nothing).
+#
+#   - include: ../lib/rust-gate.node.yml
+#     id: verify.rust
+#     on: [verify.due]
+#     emits: [verify.rust.done, verify.rust.failed]
+#     params:
+#       repo: "${config.verify.repo}"
+#       results: "${config.verify.results_dir}/results.jsonl"
+#       emit: {"0": verify.rust.done, default: verify.rust.failed}
+#
+id: gate.rust
+driver: shell
+params:
+  repo: "${config.gate.repo}"
+  # When set, the node no-ops (exit 0) unless it equals "rust" — lets
+  # one campaign include all three family fragments and run only the
+  # selected lane. Empty = always run.
+  family: ""
+  # JSONL results file — appended on every real run (pass or fail).
+  results: ""
+  # Extra cargo args appended to the test leg (e.g. "-p mycrate").
+  extra: ""
+  timeout: 3600
+  cmd: >-
+    set -uo pipefail;
+    F="${params.family}"; [ -z "$F" ] || [ "$F" = "rust" ] || { echo "family=$F — skipped"; exit 0; };
+    REPO="${params.repo}";
+    RESULTS="${params.results}";
+    START=$(date +%s);
+    cd "$REPO" &&
+    export PATH="$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" CARGO_INCREMENTAL=0 &&
+    cargo fmt --all -- --check &&
+    cargo clippy --workspace --all-targets -- -D warnings &&
+    cargo test --workspace ${params.extra};
+    rc=$?;
+    if [ -n "$RESULTS" ]; then
+      esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g');
+      printf '{"family":"rust","repo":"%s","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true;
+    fi;
+    exit $rc
+  emit:
+    "0": gate.done
+    default: gate.failed

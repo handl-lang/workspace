@@ -1,0 +1,35 @@
+# repo-verify — single-repo family-gate verify as a peregrin bundle.
+# `tamias install <ref>` fetches this; `tamias deploy repo-verify`
+# renders the shared campaign service unit like every other
+# peregrin-bundle (provider.name: peregrin → one
+# peregrin-campaign.service hosting every bundle's config).
+name: repo-verify
+version: "0.1.0"
+# `peregrin-bundle` routes install/deploy/uninstall through
+# `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
+type: peregrin-bundle
+description: >-
+  On-demand verify of one repo checkout against the canonical
+  rust/python/handl gate fragments in workflows/lib: guard →
+  three composed family lanes (family guard selects one) →
+  fan_in join → results.jsonl verdict. No git/forge calls.
+
+provider:
+  # SHARED provider identity — identical to every other
+  # peregrin-bundle so all campaign services render ONE
+  # peregrin-campaign.service. Keep `exec` identical — last deploy
+  # wins the unit file.
+  name: peregrin
+  services:
+    - name: campaign
+      exec: >-
+        ~/.local/bin/peregrin campaign serve ~/.config/peregrin/serve
+        --listen 127.0.0.1:29173 --path /hook
+        --history-dir ~/.local/share/peregrin/serve-history
+        --queue-store-dir ~/.local/share/peregrin/serve-queues
+      env_file: "~/.config/peregrin/env"
+      workdir: "~"
+      restart: on-failure
+  # No ingress: `campaign run`/`submit` only — nothing listens for
+  # forge webhooks.
+  verbs: [run, logs]

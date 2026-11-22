@@ -1,0 +1,69 @@
+# lib/handl-gate.node.yml — canonical Handl gate fragment.
+#
+# Resolves the hnl toolchain (HNL binary + HANDL_EXT_DIR cdylibs)
+# and runs the repo's own gate: `bash ci.sh` when present, else the
+# hnl-gate stages (typecheck/lint/test) over the package sources.
+# `params.src_dir` picks the source root for the fallback path
+# (handl-packages for the modern layout, src for the legacy one).
+#
+# Parent owns the event contract — declare `on:`/`emits:` and
+# `params.emit` at the include site; override `params.repo`,
+# `params.results`, `params.family`, `params.hnl`,
+# `params.hnl_ext_dir`, `params.src_dir`, `params.timeout` as
+# needed. When `params.results` is set, every run appends
+# {"family","repo","rc","secs"} to that JSONL file (skipped
+# family-guard exits record nothing).
+#
+#   - include: ../lib/handl-gate.node.yml
+#     id: verify.hnl
+#     on: [verify.due]
+#     emits: [verify.hnl.done, verify.hnl.failed]
+#     params:
+#       repo: "${config.verify.repo}"
+#       results: "${config.verify.results_dir}/results.jsonl"
+#       emit: {"0": verify.hnl.done, default: verify.hnl.failed}
+#
+id: gate.handl
+driver: shell
+params:
+  repo: "${config.gate.repo}"
+  # Family guard — see rust-gate.node.yml; match is "handl".
+  family: ""
+  # JSONL results file — appended on every real run (pass or fail).
+  results: ""
+  hnl: "${config.gate.hnl}"
+  hnl_ext_dir: "${config.gate.hnl_ext_dir}"
+  src_dir: ""
+  timeout: 1800
+  cmd: >-
+    set -uo pipefail;
+    F="${params.family}"; [ -z "$F" ] || [ "$F" = "handl" ] || { echo "family=$F — skipped"; exit 0; };
+    REPO="${params.repo}";
+    RESULTS="${params.results}";
+    START=$(date +%s);
+    cd "$REPO" &&
+    export HNL="${params.hnl}" HANDL_EXT_DIR="${params.hnl_ext_dir}"
+      PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" &&
+    { if [ -f ci.sh ]; then
+        bash ci.sh;
+      else
+        SRC="${params.src_dir}";
+        [ -z "$SRC" ] && { [ -d handl-packages ] && SRC=handl-packages || SRC=src; };
+        sources=$(find "$SRC" -name '*.hnl' 2>/dev/null | sort);
+        if [ -n "$sources" ]; then
+          "$HNL" typecheck $sources &&
+          "$HNL" lint $sources &&
+          for t in $(find "$SRC" -name '*.test.hnl' | sort); do "$HNL" test "$t"; done;
+        else
+          echo "no .hnl sources under $SRC — vacuous pass";
+        fi;
+      fi; };
+    rc=$?;
+    if [ -n "$RESULTS" ]; then
+      esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g');
+      printf '{"family":"handl","repo":"%s","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true;
+    fi;
+    exit $rc
+  emit:
+    "0": gate.done
+    default: gate.failed

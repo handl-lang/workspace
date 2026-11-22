@@ -1,0 +1,144 @@
+# repo-verify — run the canonical family gate (rust|python|handl)
+# against ONE repo checkout, composed from workflows/lib fragments.
+#
+# What it does: verify.guard validates config → all three family
+# fragments fire on verify.due; the family guard inside each fragment
+# no-ops the non-selected lanes (empty family = run all three) →
+# every lane emits verify.gate.end exactly once → fan_in join →
+# verify.report reads results.jsonl (written by the fragments) and
+# emits the verdict.
+#
+# This is the reusable-gate counterpart to handl-verify: handl-verify
+# sweeps every repo's committed ci.sh (per-push parity); repo-verify
+# answers "does repo X pass the standard <family> gate" without a
+# ci.sh — or with one, since handl-gate prefers ci.sh when present.
+#
+# On demand only: `peregrin campaign run main.yaml` — the `start`
+# event walks the same pipeline as verify.due.
+name: repo-verify
+
+# Operator-facing knobs — override in the rendered serve yaml config:
+# block after `tamias deploy`, or as REPO_VERIFY_* env vars on
+# `campaign run` (env() reads them; see capabilities.env).
+config:
+  verify:
+    # Absolute path to the repo checkout to verify.
+    repo: '${env("REPO_VERIFY_REPO","")}'
+    # Gate family: rust | python | handl — or "" to run all three.
+    family: '${env("REPO_VERIFY_FAMILY","")}'
+    # hnl toolchain for the handl lane (HNL + HANDL_EXT_DIR).
+    hnl: '${env("REPO_VERIFY_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}'
+    hnl_ext_dir: '${env("REPO_VERIFY_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}'
+    # Results land here: results.jsonl ({family,repo,rc,secs} per
+    # lane that actually ran — skipped lanes record nothing).
+    results_dir: '${env("REPO_VERIFY_RESULTS_DIR","$HOME/.local/share/repo-verify")}'
+
+capabilities:
+  env:
+    - REPO_VERIFY_REPO
+    - REPO_VERIFY_FAMILY
+    - REPO_VERIFY_HNL
+    - REPO_VERIFY_HNL_EXT_DIR
+    - REPO_VERIFY_RESULTS_DIR
+
+nodes:
+  # --- guard: validate inputs before fanning out --------------------
+  - id: verify.guard
+    driver: shell
+    on: [start]
+    emits: [verify.due, verify.guard.failed]
+    params:
+      cmd: >-
+        set -u;
+        REPO="${config.verify.repo}";
+        [ -n "$REPO" ] || { echo "config.verify.repo is required (absolute checkout path)"; exit 1; };
+        [ -d "$REPO" ] || { echo "no such directory: $REPO"; exit 1; };
+        F="${config.verify.family}";
+        case "$F" in ""|rust|python|handl) ;; *) echo "unknown family: $F (rust|python|handl|empty=all)"; exit 1;; esac;
+        RES="${config.verify.results_dir}";
+        mkdir -p "$RES";
+        : > "$RES/results.jsonl";
+        echo "repo-verify: repo=$REPO family=${F:-all}"
+      cwd: "~"
+      timeout: 60
+      emit:
+        "0": verify.due
+        default: verify.guard.failed
+
+  # --- gates: the three family fragments, composed. Each carries the
+  # same family guard; only the selected lane (or all, when family is
+  # empty) does real work. All exit codes map to the shared
+  # verify.gate.end — the verdict lives in results.jsonl, not the
+  # event type, so the join width stays a static 3.
+  - include: ../lib/rust-gate.node.yml
+    id: verify.gate.rust
+    on: [verify.due]
+    emits: [verify.gate.end]
+    params:
+      family: "${config.verify.family}"
+      repo: "${config.verify.repo}"
+      results: "${config.verify.results_dir}/results.jsonl"
+      emit:
+        "0": verify.gate.end
+        default: verify.gate.end
+
+  - include: ../lib/python-gate.node.yml
+    id: verify.gate.python
+    on: [verify.due]
+    emits: [verify.gate.end]
+    params:
+      family: "${config.verify.family}"
+      repo: "${config.verify.repo}"
+      results: "${config.verify.results_dir}/results.jsonl"
+      emit:
+        "0": verify.gate.end
+        default: verify.gate.end
+
+  - include: ../lib/handl-gate.node.yml
+    id: verify.gate.handl
+    on: [verify.due]
+    emits: [verify.gate.end]
+    params:
+      family: "${config.verify.family}"
+      repo: "${config.verify.repo}"
+      results: "${config.verify.results_dir}/results.jsonl"
+      hnl: "${config.verify.hnl}"
+      hnl_ext_dir: "${config.verify.hnl_ext_dir}"
+      emit:
+        "0": verify.gate.end
+        default: verify.gate.end
+
+  # --- join: exactly three lanes, each emits end once ---------------
+  - id: verify.join
+    driver: noop
+    on: [verify.gate.end]
+    fan_in:
+      count: 3
+      emit: verify.mapped
+    emits: [verify.mapped]
+
+  # --- report: verdict from results.jsonl — fails = rc != 0 --------
+  - id: verify.report
+    driver: shell
+    on: [verify.mapped]
+    emits: [verify.report.done, verify.report.failed]
+    params:
+      cmd: >-
+        set -u;
+        RES="${config.verify.results_dir}";
+        f="$RES/results.jsonl";
+        [ -s "$f" ] || { echo "no gate ran — check family/repo config"; exit 1; };
+        total=$(wc -l < "$f" | tr -d ' ');
+        fails=$(awk -F'"rc":' '{split($2,a,","); if (a[1]+0 != 0) c++} END{print c+0}' "$f");
+        oks=$(( total - fails ));
+        {
+          echo "repo-verify: $total lane(s) ran — $oks passed, $fails failed";
+          cat "$f";
+          awk -F'"rc":' '{split($2,a,","); if (a[1]+0 != 0) { split($0,b,"\"repo\":\""); split(b[2],c,"\""); print "  FAIL", c[1], "rc=" a[1] }}' "$f";
+        } | tee "$RES/summary.txt";
+        [ "$fails" -eq 0 ]
+      cwd: "~"
+      timeout: 60
+      emit:
+        "0": verify.report.done
+        default: verify.report.failed
