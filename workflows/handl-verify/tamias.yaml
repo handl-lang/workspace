@@ -1,0 +1,36 @@
+# handl-verify — fleet-wide ci.sh sweep as a peregrin bundle.
+# `tamias install <ref>` fetches this; `tamias deploy handl-verify`
+# renders the shared campaign service unit like every other
+# peregrin-bundle (provider.name: peregrin → one
+# peregrin-campaign.service hosting every bundle's config).
+name: handl-verify
+version: "0.1.0"
+# `peregrin-bundle` routes install/deploy/uninstall through
+# `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
+type: peregrin-bundle
+description: >-
+  Nightly (and on-demand) sweep of every handl-lang repo's ci.sh:
+  toolchain check → dynamic fan-out of verify.workers shell workers →
+  fan_in join → pass/fail report under the results dir. No git/forge
+  calls — workers run each repo's committed gate in its dev checkout.
+
+provider:
+  # SHARED provider identity (T8-7) — identical to ci-gate/docs-deploy/
+  # myco-maintenance: every peregrin-bundle declares
+  # provider.name: peregrin so all campaign services render ONE
+  # peregrin-campaign.service. Keep `exec` identical — last deploy
+  # wins the unit file.
+  name: peregrin
+  services:
+    - name: campaign
+      exec: >-
+        ~/.local/bin/peregrin campaign serve ~/.config/peregrin/serve
+        --listen 127.0.0.1:29173 --path /hook
+        --history-dir ~/.local/share/peregrin/serve-history
+        --queue-store-dir ~/.local/share/peregrin/serve-queues
+      env_file: "~/.config/peregrin/env"
+      workdir: "~"
+      restart: on-failure
+  # No ingress: schedule + `campaign run`/`submit` only — nothing
+  # listens for forge webhooks.
+  verbs: [run, logs]

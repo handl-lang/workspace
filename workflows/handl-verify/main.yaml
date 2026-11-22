@@ -1,0 +1,192 @@
+# handl-verify — fleet-wide gate sweep as a peregrin campaign.
+#
+# What it does: enumerates every repo under the handl-lang workspace
+# that ships a `ci.sh`, fans out `verify.workers` shell workers (each
+# running `bash ci.sh` serially over its slice), joins the per-worker
+# done events, and reports pass/fail counts plus the failing repos.
+#
+# This is the "ci.sh work" orchestrated by the event graph instead of
+# a bash loop — the same sweep host/scripts/verify-all.sh does by
+# hand, as a campaign: scheduled nightly, runnable on demand via
+# `peregrin campaign run main.yaml` (the `start` event walks the same
+# pipeline as `verify.due`).
+#
+# Boundaries: no git/forge calls — workers run each repo's own
+# committed ci.sh in its dev checkout (IN_WORKTREE=0 → the gates'
+# ensure_siblings no-ops and [patch] tables resolve against the real
+# sibling layout). bupha stays the per-push gate; this campaign is
+# the cross-repo sweep.
+#
+# Fan-out is self-modifying (ADR-0021 style): verify.plan emits
+# {nodes:[...]} on stdout, driver:runner injects the worker specs,
+# verify.spawned fires them, verify.join is the fan_in reduce over
+# verify.work.*.done. Worker count is fixed by config.verify.workers
+# so the join width is static — empty slices finish instantly.
+name: handl-verify
+
+# Operator-facing knobs — override in the rendered serve yaml config:
+# block after `tamias deploy`, or as HANDL_VERIFY_* env vars on
+# `campaign run` (env() reads them; see capabilities.env).
+config:
+  verify:
+    # Workspace root containing the sibling repo checkouts.
+    workspace: '${env("HANDL_VERIFY_WORKSPACE","$HOME/GitHub/handl-lang")}'
+    # Parallel ci.sh workers — the box is memory-bound (cargo gates
+    # peak multiple GB each); keep this small.
+    workers: '${env("HANDL_VERIFY_WORKERS","6")}'
+    # Per-repo gate timeout (seconds) — `timeout` wraps each ci.sh.
+    gate_timeout: '${env("HANDL_VERIFY_GATE_TIMEOUT","1800")}'
+    # Sweep cron (schedule driver). Set to "" and delete the schedule
+    # node's emits to make the campaign manual-only.
+    cron: '${env("HANDL_VERIFY_CRON","37 5 * * *")}'
+    # hnl toolchain the lib-* gates resolve (HNL env override) and the
+    # dir holding libhnl_ext_*.so (HANDL_EXT_DIR). Defaults point at
+    # the dogfood release build under .ci-target/.
+    hnl: '${env("HANDL_VERIFY_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}'
+    hnl_ext_dir: '${env("HANDL_VERIFY_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}'
+    # Results land here: results.jsonl (one {repo,rc,secs} per repo),
+    # plan/w<i>.txt (each worker's slice), logs/<repo>.log.
+    results_dir: '${env("HANDL_VERIFY_RESULTS_DIR","$HOME/.local/share/handl-verify")}'
+    # Extra repo names to skip even though they ship ci.sh.
+    skip: '${env("HANDL_VERIFY_SKIP","assets workspace lib-mri")}'
+
+capabilities:
+  env:
+    - HANDL_VERIFY_WORKSPACE
+    - HANDL_VERIFY_WORKERS
+    - HANDL_VERIFY_GATE_TIMEOUT
+    - HANDL_VERIFY_CRON
+    - HANDL_VERIFY_HNL
+    - HANDL_VERIFY_HNL_EXT_DIR
+    - HANDL_VERIFY_RESULTS_DIR
+    - HANDL_VERIFY_SKIP
+
+nodes:
+  # --- schedule: nightly sweep --------------------------------------
+  - id: verify.schedule
+    driver: schedule
+    on: [start]
+    emits: [verify.due]
+    params:
+      cron: "${config.verify.cron}"
+      timezone: "America/Sao_Paulo"
+
+  # --- toolchain: the lib-* gates all shell out to `hnl` — verify the
+  # binary + ext cdylibs exist before fanning out 100+ gates that
+  # would otherwise fail identically.
+  - id: verify.toolchain
+    driver: shell
+    on: [verify.due, start]
+    emits: [verify.toolchain.done, verify.toolchain.failed]
+    params:
+      cmd: >-
+        set -u;
+        HNL="${config.verify.hnl}";
+        EXT="${config.verify.hnl_ext_dir}";
+        [ -x "$HNL" ] || { echo "no hnl binary at $HNL"; exit 1; };
+        ls "$EXT"/libhnl_ext_*.so >/dev/null 2>&1 || { echo "no libhnl_ext_*.so under $EXT"; exit 1; };
+        "$HNL" ext list >/dev/null || { echo "hnl ext list failed"; exit 1; };
+        echo "toolchain ok: $HNL (+ exts in $EXT)"
+      cwd: "~"
+      timeout: 120
+      emit:
+        "0": verify.toolchain.done
+        default: verify.toolchain.failed
+
+  # --- plan: enumerate repos with ci.sh, slice into `workers` chunks,
+  # write plan/w<i>.txt, emit {nodes:[...]} worker specs on stdout.
+  - id: verify.plan
+    driver: shell
+    on: [verify.toolchain.done]
+    emits: [verify.plan, verify.plan.failed]
+    params:
+      # Literal block — the heredoc below needs real newlines.
+      cmd: |
+        set -euo pipefail;
+        WS="${config.verify.workspace}";
+        W="${config.verify.workers}";
+        RES="${config.verify.results_dir}";
+        SKIP=" ${config.verify.skip} ";
+        HNL="${config.verify.hnl}";
+        EXT="${config.verify.hnl_ext_dir}";
+        TO="${config.verify.gate_timeout}";
+        mkdir -p "$RES/plan" "$RES/logs";
+        : > "$RES/results.jsonl";
+        repos=$(cd "$WS" && for d in */; do d="${d%/}"; [ -f "$d/ci.sh" ] || continue; case "$SKIP" in *" $d "*) continue;; esac; printf '%s\n' "$d"; done | sort);
+        n=$(printf '%s\n' "$repos" | grep -c . || true);
+        [ "$n" -eq 0 ] && { echo '{"nodes":[]}'; exit 0; }
+        specs=(); i=0;
+        while [ "$i" -lt "$W" ]; do
+          start=$(( i * n / W )); end=$(( (i + 1) * n / W ));
+          printf '%s\n' "$repos" | sed -n "$((start + 1)),$((end > start ? end : start + 1))p" | sed '/^$/d' > "$RES/plan/w$i.txt";
+          chunk=$(wc -l < "$RES/plan/w$i.txt" | tr -d ' ');
+          wto=$(( chunk * TO + 300 ));
+          cmd=$(cat <<EOF2
+        set -u;
+        export HNL="$HNL" HANDL_EXT_DIR="$EXT" PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin";
+        while IFS= read -r repo; do
+          [ -z "\$repo" ] && continue;
+          s=\$(date +%s);
+          if (cd "\$repo" && timeout $TO bash ci.sh) >"$RES/logs/\$repo.log" 2>&1; then rc=0; else rc=\$?; fi;
+          e=\$(date +%s);
+          printf '{"repo":"%s","rc":%s,"secs":%s}\n' "\$repo" "\$rc" "\$((e - s))" >> "$RES/results.jsonl";
+        done < "$RES/plan/w$i.txt";
+        exit 0
+        EOF2
+          );
+          spec=$(jq -n --arg i "$i" --arg ws "$WS" --arg to "$wto" --arg cmd "$cmd" '
+            {id:("verify.work." + $i), driver:"shell", on:["verify.spawned"],
+             emits:[("verify.work." + $i + ".done")], max_fires:1,
+             params:{cwd:$ws, timeout:($to|tonumber), cmd:$cmd,
+                     emit:{"0":("verify.work." + $i + ".done")}}}');
+          specs+=("$spec"); i=$((i + 1));
+        done;
+        jq -n --argjson specs "$(printf '%s\n' "${specs[@]}" | jq -s .)" '{nodes:$specs}'
+      cwd: "~"
+      timeout: 120
+      emit:
+        "0": verify.plan
+        default: verify.plan.failed
+
+  # --- runner: inject the worker specs, then emit the spawn signal ---
+  - id: verify.runner
+    driver: runner
+    on: [verify.plan]
+    emits: [verify.spawned]
+    max_fires: 1
+
+  # --- join: every verify.work.*.done → the reduced collection -------
+  - id: verify.join
+    driver: noop
+    on: ["verify.work.*.done"]
+    fan_in:
+      count_from: verify.workers
+      emit: verify.mapped
+    emits: [verify.mapped]
+    max_fires: 1
+
+  # --- report: summarize results.jsonl — counts + failing repos -----
+  - id: verify.report
+    driver: shell
+    on: [verify.mapped]
+    emits: [verify.report.done, verify.report.failed]
+    params:
+      cmd: >-
+        set -u;
+        RES="${config.verify.results_dir}";
+        f="$RES/results.jsonl";
+        [ -s "$f" ] || { echo "no results recorded"; exit 1; };
+        total=$(wc -l < "$f" | tr -d ' ');
+        fails=$(awk -F'"rc":' '{split($2,a,","); if (a[1]+0 != 0) c++} END{print c+0}' "$f");
+        oks=$(( total - fails ));
+        {
+          echo "handl-verify sweep: $total repos — $oks passed, $fails failed";
+          awk -F'"rc":' '{split($2,a,","); if (a[1]+0 != 0) { split($0,b,"\"repo\":\""); split(b[2],c,"\""); print "  FAIL", c[1], "rc=" a[1] }}' "$f";
+        } | tee "$RES/summary.txt";
+        echo "logs: $RES/logs/  results: $f";
+        [ "$fails" -eq 0 ]
+      cwd: "~"
+      timeout: 120
+      emit:
+        "0": verify.report.done
+        default: verify.report.failed
