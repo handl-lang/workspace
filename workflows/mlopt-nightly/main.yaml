@@ -1,0 +1,144 @@
+# mlopt-nightly — research-mlopt's heavy lanes as a peregrin campaign.
+#
+# Two independent chains, both on the same schedule/manual trigger:
+#
+#   ci    — the Python *suite* gates.sh lanes (dev|full) that used to
+#           ride the per-push bupha cmd. Serial pytest is tens of
+#           minutes-to-hours on this box — nightly + on-demand, not
+#           per-push. Per-push keeps the `static` lane inside ci.sh.
+#   bench — scripts/bench.sh (the retired bench.yml ladder): uv sync
+#           + CPU torch + run-all/dashboard/gate, non-blocking stages.
+#
+# Each lane writes {lane,rc,secs} to results.jsonl and emits the
+# shared mlopt.lane.done; verify.join fan_in (count 2) reduces both
+# into mlopt.lanes.mapped; mlopt.report summarizes and fails the run
+# if either lane went red.
+#
+# Run on demand: `peregrin campaign run main.yaml` — the `start`
+# event walks the same pipeline as the cron fire.
+name: mlopt-nightly
+
+config:
+  mlopt:
+    # Repo checkout the lanes run in (dev checkout — .venv/inductor
+    # caches are warm there; gates are not worktree-safe by design).
+    repo: '${env("MLOPT_REPO","$HOME/GitHub/handl-lang/research-mlopt")}'
+    # Cron (UTC). Staggered so the suite and bench don't contend.
+    ci_cron: '${env("MLOPT_CI_CRON","23 4 * * *")}'
+    bench_cron: '${env("MLOPT_BENCH_CRON","47 4 * * *")}'
+    # gates.sh lane for the suite — `full` (everything once) nightly;
+    # override to `dev` for the not-slow lane.
+    suite_lane: '${env("MLOPT_SUITE_LANE","full")}'
+    suite_np: '${env("MLOPT_SUITE_NP","1")}'
+    # bench.sh knobs — quick sweeps nightly; MLOPT_BENCH_QUICK=0 for a
+    # deep manual run (edit rendered config or env on `campaign run`).
+    bench_quick: '${env("MLOPT_BENCH_QUICK","1")}'
+    bench_suites: '${env("MLOPT_BENCH_SUITES","")}'
+    results_dir: '${env("MLOPT_RESULTS_DIR","$HOME/.local/share/mlopt-nightly")}'
+
+capabilities:
+  env:
+    - MLOPT_REPO
+    - MLOPT_CI_CRON
+    - MLOPT_BENCH_CRON
+    - MLOPT_SUITE_LANE
+    - MLOPT_SUITE_NP
+    - MLOPT_BENCH_QUICK
+    - MLOPT_BENCH_SUITES
+    - MLOPT_RESULTS_DIR
+
+nodes:
+  # --- schedules: nightly suite + nightly bench, independent ---------
+  - id: mlopt.ci.schedule
+    driver: schedule
+    on: [start]
+    emits: [mlopt.ci.due]
+    params:
+      cron: "${config.mlopt.ci_cron}"
+      timezone: "UTC"
+
+  - id: mlopt.bench.schedule
+    driver: schedule
+    on: [start]
+    emits: [mlopt.bench.due]
+    params:
+      cron: "${config.mlopt.bench_cron}"
+      timezone: "UTC"
+
+  # --- ci lane: uv sync + gates.sh suite lane -------------------------
+  - id: mlopt.ci
+    driver: shell
+    on: [mlopt.ci.due, start]
+    emits: [mlopt.lane.done]
+    params:
+      cmd: >-
+        set -u;
+        REPO="${config.mlopt.repo}"; RES="${config.mlopt.results_dir}";
+        mkdir -p "$RES"; s=$(date +%s);
+        cd "$REPO" || exit 1;
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin";
+        if uv sync --frozen && MLOPT_GATES_LANE="${config.mlopt.suite_lane}" MLOPT_GATES_NP="${config.mlopt.suite_np}" bash scripts/gates.sh; then rc=0; else rc=$?; fi;
+        e=$(date +%s);
+        printf '{"lane":"ci","rc":%s,"secs":%s}\n' "$rc" "$((e - s))" >> "$RES/results.jsonl";
+        exit 0
+      cwd: "~"
+      # Full suite is hours-scale serial — cap at 8h.
+      timeout: 28800
+      emit:
+        "0": mlopt.lane.done
+        default: mlopt.lane.done
+
+  # --- bench lane: scripts/bench.sh (always exits 0 unless env broken)
+  - id: mlopt.bench
+    driver: shell
+    on: [mlopt.bench.due, start]
+    emits: [mlopt.lane.done]
+    params:
+      cmd: >-
+        set -u;
+        REPO="${config.mlopt.repo}"; RES="${config.mlopt.results_dir}";
+        mkdir -p "$RES"; s=$(date +%s);
+        cd "$REPO" || exit 1;
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin";
+        MLOPT_BENCH_QUICK="${config.mlopt.bench_quick}" MLOPT_BENCH_SUITES="${config.mlopt.bench_suites}" bash scripts/bench.sh; rc=$?;
+        e=$(date +%s);
+        printf '{"lane":"bench","rc":%s,"secs":%s}\n' "$rc" "$((e - s))" >> "$RES/results.jsonl";
+        exit 0
+      cwd: "~"
+      # GHA allowed 180min; benches are non-blocking anyway.
+      timeout: 10800
+      emit:
+        "0": mlopt.lane.done
+        default: mlopt.lane.done
+
+  # --- join: both lanes' done events → one reduce --------------------
+  - id: mlopt.join
+    driver: noop
+    on: [mlopt.lane.done]
+    fan_in:
+      count: 2
+      emit: mlopt.lanes.mapped
+    emits: [mlopt.lanes.mapped]
+
+  # --- report: summarize results.jsonl; fail the run on any red lane --
+  - id: mlopt.report
+    driver: shell
+    on: [mlopt.lanes.mapped]
+    emits: [mlopt.report.done, mlopt.report.failed]
+    params:
+      cmd: >-
+        set -u;
+        RES="${config.mlopt.results_dir}"; f="$RES/results.jsonl";
+        [ -s "$f" ] || { echo "no lane results recorded"; exit 1; };
+        fails=$(awk -F'"rc":' '{split($2,a,","); if (a[1]+0 != 0) c++} END{print c+0}' "$f");
+        total=$(wc -l < "$f" | tr -d ' ');
+        {
+          echo "mlopt-nightly: $total lanes — $((total - fails)) passed, $fails failed";
+          cat "$f";
+        } | tee "$RES/summary.txt";
+        [ "$fails" -eq 0 ]
+      cwd: "~"
+      timeout: 60
+      emit:
+        "0": mlopt.report.done
+        default: mlopt.report.failed

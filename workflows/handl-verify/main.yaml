@@ -153,7 +153,6 @@ nodes:
     driver: runner
     on: [verify.plan]
     emits: [verify.spawned]
-    max_fires: 1
 
   # --- join: every verify.work.*.done → the reduced collection -------
   - id: verify.join
@@ -163,7 +162,6 @@ nodes:
       count_from: verify.workers
       emit: verify.mapped
     emits: [verify.mapped]
-    max_fires: 1
 
   # --- report: summarize results.jsonl — counts + failing repos -----
   - id: verify.report
