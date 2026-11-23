@@ -1,0 +1,107 @@
+# gates/handl.yaml — one-shot Handl family gate for ONE repo
+# checkout.
+#
+# What it does: gate.init validates config.gate.repo and truncates
+# the results file → the lib/handl-gate.node.yml fragment resolves
+# the hnl toolchain and runs the repo's own gate (`bash ci.sh` when
+# present, else `hnl typecheck/lint/test` over handl-packages/src)
+# in the checkout → gate.report reads the results.jsonl record and
+# emits the terminal verdict: gate.pass / gate.fail.
+#
+# On demand only — `on: [start]`, no schedule, no ingress:
+#
+#   # from this checkout:
+#   GATE_REPO=$HOME/GitHub/handl-lang/lib-command \
+#     ~/.local/bin/peregrin campaign run gates/handl.yaml --history run.jsonl
+#
+#   # from an installed bundle (tamias install ./workflows):
+#   ~/.local/bin/peregrin campaign submit --bundle handl-gates \
+#     --workflow gates/handl.yaml
+#
+# Node failure does not affect the process exit code — the verdict
+# is the gate.pass/gate.fail event in the run's event log
+# (--history JSONL / `peregrin runs`/`log`).
+name: gate-handl
+
+# Operator-facing knobs — override after `tamias deploy` in the
+# rendered config, or as GATE_* env vars (env() reads them; see
+# capabilities.env). hnl/hnl_ext_dir defaults are the dogfood
+# release build — same as handl-verify.
+config:
+  gate:
+    # Absolute path to the repo checkout to gate.
+    repo: '${env("GATE_REPO","")}'
+    # JSONL results file — truncated at start, one
+    # {"family","repo","rc","secs"} record per run.
+    results: '${env("GATE_RESULTS","$HOME/.local/share/handl-gates/handl.results.jsonl")}'
+    # hnl binary + dir holding libhnl_ext_*.so (HANDL_EXT_DIR).
+    hnl: '${env("GATE_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}'
+    hnl_ext_dir: '${env("GATE_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}'
+    # Source root for the no-ci.sh fallback ("" = auto: handl-packages
+    # then src).
+    src_dir: '${env("GATE_SRC_DIR","")}'
+
+capabilities:
+  env:
+    - GATE_REPO
+    - GATE_RESULTS
+    - GATE_HNL
+    - GATE_HNL_EXT_DIR
+    - GATE_SRC_DIR
+
+nodes:
+  # --- init: validate inputs, fresh results file --------------------
+  - id: gate.init
+    driver: shell
+    on: [start]
+    emits: [gate.due, gate.init.failed]
+    params:
+      cmd: >-
+        set -u;
+        REPO="${config.gate.repo}";
+        [ -n "$REPO" ] || { echo "config.gate.repo is required (set GATE_REPO to an absolute checkout path)"; exit 1; };
+        [ -d "$REPO" ] || { echo "no such directory: $REPO"; exit 1; };
+        RES="${config.gate.results}";
+        mkdir -p "$(dirname "$RES")";
+        : > "$RES";
+        echo "gate-handl: repo=$REPO results=$RES"
+      cwd: "~"
+      timeout: 60
+      emit:
+        "0": gate.due
+        default: gate.init.failed
+
+  # --- gate: the canonical handl fragment ---------------------------
+  - include: ../lib/handl-gate.node.yml
+    id: gate.handl
+    on: [gate.due]
+    emits: [gate.done, gate.failed]
+    params:
+      repo: "${config.gate.repo}"
+      results: "${config.gate.results}"
+      hnl: "${config.gate.hnl}"
+      hnl_ext_dir: "${config.gate.hnl_ext_dir}"
+      src_dir: "${config.gate.src_dir}"
+      emit:
+        "0": gate.done
+        default: gate.failed
+
+  # --- report: terminal verdict from the results record -------------
+  - id: gate.report
+    driver: shell
+    on: [gate.done, gate.failed]
+    emits: [gate.pass, gate.fail]
+    params:
+      cmd: >-
+        set -u;
+        F="${config.gate.results}";
+        [ -s "$F" ] || { echo "no results record — gate produced nothing"; exit 1; };
+        line=$(tail -n 1 "$F");
+        rc=$(printf '%s' "$line" | sed -n 's/.*"rc":\([0-9][0-9]*\).*/\1/p');
+        echo "gate-handl verdict: $line";
+        [ "${rc:-1}" = "0" ]
+      cwd: "~"
+      timeout: 60
+      emit:
+        "0": gate.pass
+        default: gate.fail

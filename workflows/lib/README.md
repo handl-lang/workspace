@@ -26,18 +26,31 @@ once; each campaign supplies the event contract (`on:`/`emits:`/
 - **`params.results`** — JSONL path; every real run appends
   `{"family","repo","rc","secs"}`. Skipped lanes write nothing.
 - **`params.repo`** — absolute checkout path (dev checkout;
-  worktree/sibling plumbing stays in `ci.sh`/bupha land).
+  worktree/sibling plumbing stays in bupha land).
 
 ## Consumers
 
+- [`../gates/`](../gates/) — one-shot per-family campaigns
+  (`gate.init` → fragment → `gate.report` emitting `gate.pass`/
+  `gate.fail`); the packaged form bupha-side consumers invoke.
 - [`../repo-verify/`](../repo-verify/) — reference consumer:
   one repo × one family, guard → 3 lanes → join → report.
 
+All of the above ship inside the **`handl-gates` tamias bundle**
+([`../tamias.yaml`](../tamias.yaml)) — the whole `workflows/` dir is
+one `peregrin-bundle` payload (`type: peregrin-bundle`,
+`provider.name: peregrin`, `verbs: [run, logs]`). Repos that want a
+committed per-push gate include fragments by bundle ref:
+`include: tamias:handl-gates//lib/<family>-gate.node.yml`.
+
 ## Boundary vs ci.sh
 
-`ci.sh` remains the **per-push contract** — bupha execs it inside a
-detached worktree of the pushed sha, so the gate must be committed
-in the repo at that sha. These fragments serve **campaign-side**
-verification (ad-hoc, sweeps, repos without ci.sh) and encode the
-*baseline* recipe; repos with bespoke gates keep ci.sh and both
-paths stay honest about which gate they ran.
+`ci.sh` is being **retired** as the per-push contract — repos carry a
+thin committed `workflows/gate.yaml` that composes these fragments
+instead, and bupha invokes `peregrin campaign run` on it inside the
+pushed worktree (same sha-commitment guarantee ci.sh had). These
+fragments are now the gate *implementation*, not just the
+campaign-side baseline: the recipe lives here once, per-repo
+gate.yaml files only wire events/params. Repos with bespoke gates
+extend via `params.extra`/`pytest_args`/`src_dir` or their own nodes;
+both paths stay honest about which gate they ran.
