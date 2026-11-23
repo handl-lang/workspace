@@ -18,23 +18,21 @@
 # event walks the same pipeline as the cron fire.
 name: mlopt-nightly
 
-config:
-  mlopt:
-    # Repo checkout the lanes run in (dev checkout — .venv/inductor
-    # caches are warm there; gates are not worktree-safe by design).
-    repo: '${env("MLOPT_REPO","$HOME/GitHub/handl-lang/research-mlopt")}'
-    # Cron (UTC). Staggered so the suite and bench don't contend.
-    ci_cron: '${env("MLOPT_CI_CRON","23 4 * * *")}'
-    bench_cron: '${env("MLOPT_BENCH_CRON","47 4 * * *")}'
-    # gates.sh lane for the suite — `full` (everything once) nightly;
-    # override to `dev` for the not-slow lane.
-    suite_lane: '${env("MLOPT_SUITE_LANE","full")}'
-    suite_np: '${env("MLOPT_SUITE_NP","1")}'
-    # bench.sh knobs — quick sweeps nightly; MLOPT_BENCH_QUICK=0 for a
-    # deep manual run (edit rendered config or env on `campaign run`).
-    bench_quick: '${env("MLOPT_BENCH_QUICK","1")}'
-    bench_suites: '${env("MLOPT_BENCH_SUITES","")}'
-    results_dir: '${env("MLOPT_RESULTS_DIR","$HOME/.local/share/mlopt-nightly")}'
+# Operator-facing knobs — every ${config.mlopt.*} lookup below
+# carries an env() fallback, so `campaign run` reads MLOPT_* env vars
+# (see capabilities.env) and a served/rendered campaign can instead
+# pin literal values under config.mlopt.* (config wins over env()):
+#
+#   config:
+#     mlopt:
+#       repo: /abs/path/to/research-mlopt
+#       ci_cron: "23 4 * * *"
+#       bench_cron: "47 4 * * *"
+#       suite_lane: full | dev
+#       suite_np: "1"
+#       bench_quick: "1"
+#       bench_suites: ""
+#       results_dir: /abs/path
 
 capabilities:
   env:
@@ -54,7 +52,7 @@ nodes:
     on: [start]
     emits: [mlopt.ci.due]
     params:
-      cron: "${config.mlopt.ci_cron}"
+      cron: '${config.mlopt.ci_cron:-${env("MLOPT_CI_CRON","23 4 * * *")}}'
       timezone: "UTC"
 
   - id: mlopt.bench.schedule
@@ -62,7 +60,7 @@ nodes:
     on: [start]
     emits: [mlopt.bench.due]
     params:
-      cron: "${config.mlopt.bench_cron}"
+      cron: '${config.mlopt.bench_cron:-${env("MLOPT_BENCH_CRON","47 4 * * *")}}'
       timezone: "UTC"
 
   # --- ci lane: uv sync + gates.sh suite lane -------------------------
@@ -73,15 +71,14 @@ nodes:
     params:
       cmd: >-
         set -u;
-        REPO="${config.mlopt.repo}"; RES="${config.mlopt.results_dir}";
+        REPO="${config.mlopt.repo:-${env("MLOPT_REPO","$HOME/GitHub/handl-lang/research-mlopt")}}"; RES="${config.mlopt.results_dir:-${env("MLOPT_RESULTS_DIR","$HOME/.local/share/mlopt-nightly")}}";
         mkdir -p "$RES"; s=$(date +%s);
         cd "$REPO" || exit 1;
         export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin";
-        if uv sync --frozen && MLOPT_GATES_LANE="${config.mlopt.suite_lane}" MLOPT_GATES_NP="${config.mlopt.suite_np}" bash scripts/gates.sh; then rc=0; else rc=$?; fi;
+        if uv sync --frozen && MLOPT_GATES_LANE="${config.mlopt.suite_lane:-${env("MLOPT_SUITE_LANE","full")}}" MLOPT_GATES_NP="${config.mlopt.suite_np:-${env("MLOPT_SUITE_NP","1")}}" bash scripts/gates.sh; then rc=0; else rc=$?; fi;
         e=$(date +%s);
         printf '{"lane":"ci","rc":%s,"secs":%s}\n' "$rc" "$((e - s))" >> "$RES/results.jsonl";
         exit 0
-      cwd: "~"
       # Full suite is hours-scale serial — cap at 8h.
       timeout: 28800
       emit:
@@ -96,15 +93,14 @@ nodes:
     params:
       cmd: >-
         set -u;
-        REPO="${config.mlopt.repo}"; RES="${config.mlopt.results_dir}";
+        REPO="${config.mlopt.repo:-${env("MLOPT_REPO","$HOME/GitHub/handl-lang/research-mlopt")}}"; RES="${config.mlopt.results_dir:-${env("MLOPT_RESULTS_DIR","$HOME/.local/share/mlopt-nightly")}}";
         mkdir -p "$RES"; s=$(date +%s);
         cd "$REPO" || exit 1;
         export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin";
-        MLOPT_BENCH_QUICK="${config.mlopt.bench_quick}" MLOPT_BENCH_SUITES="${config.mlopt.bench_suites}" bash scripts/bench.sh; rc=$?;
+        MLOPT_BENCH_QUICK="${config.mlopt.bench_quick:-${env("MLOPT_BENCH_QUICK","1")}}" MLOPT_BENCH_SUITES="${config.mlopt.bench_suites:-${env("MLOPT_BENCH_SUITES","")}}" bash scripts/bench.sh; rc=$?;
         e=$(date +%s);
         printf '{"lane":"bench","rc":%s,"secs":%s}\n' "$rc" "$((e - s))" >> "$RES/results.jsonl";
         exit 0
-      cwd: "~"
       # GHA allowed 180min; benches are non-blocking anyway.
       timeout: 10800
       emit:
@@ -128,7 +124,7 @@ nodes:
     params:
       cmd: >-
         set -u;
-        RES="${config.mlopt.results_dir}"; f="$RES/results.jsonl";
+        RES="${config.mlopt.results_dir:-${env("MLOPT_RESULTS_DIR","$HOME/.local/share/mlopt-nightly")}}"; f="$RES/results.jsonl";
         [ -s "$f" ] || { echo "no lane results recorded"; exit 1; };
         fails=$(awk -F'"rc":' '{split($2,a,","); if (a[1]+0 != 0) c++} END{print c+0}' "$f");
         total=$(wc -l < "$f" | tr -d ' ');
@@ -137,7 +133,6 @@ nodes:
           cat "$f";
         } | tee "$RES/summary.txt";
         [ "$fails" -eq 0 ]
-      cwd: "~"
       timeout: 60
       emit:
         "0": mlopt.report.done

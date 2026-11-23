@@ -1,10 +1,14 @@
 # gates/rust.yaml — one-shot Rust family gate for ONE repo checkout.
 #
-# What it does: gate.init validates config.gate.repo and truncates
-# the results file → the lib/rust-gate.node.yml fragment runs the
+# What it does: gate.init validates the repo config and truncates
+# the results file → gate.ensure restores the worktree sibling
+# layout and drops the shared CARGO_TARGET_DIR env file (no-op in a
+# main checkout) → the lib/rust-gate.node.yml fragment runs the
 # canonical cargo floor (fmt --check → clippy -D warnings → test)
 # in the checkout → gate.report reads the results.jsonl record and
-# emits the terminal verdict: gate.pass / gate.fail.
+# emits the terminal verdict: gate.pass / gate.fail. The campaign's
+# `result:` block maps those events to run conclusions
+# (success/failure) for `campaign run --result`.
 #
 # On demand only — `on: [start]`, no schedule, no ingress:
 #
@@ -12,33 +16,46 @@
 #   GATE_REPO=$HOME/GitHub/handl-lang/lib-command \
 #     ~/.local/bin/peregrin campaign run gates/rust.yaml --history run.jsonl
 #
-#   # from an installed bundle (tamias install ./workflows):
-#   ~/.local/bin/peregrin campaign submit --bundle handl-gates \
-#     --workflow gates/rust.yaml
+#   # `campaign submit` can't carry GATE_* env vars server-side — pin
+#   # config.gate.repo in the served yaml for submitted runs instead.
 #
 # Node failure does not affect the process exit code — the verdict
 # is the gate.pass/gate.fail event in the run's event log
 # (--history JSONL / `peregrin runs`/`log`).
 name: gate-rust
 
-# Operator-facing knobs — override after `tamias deploy` in the
-# rendered config, or as GATE_* env vars (env() reads them; see
-# capabilities.env).
-config:
-  gate:
-    # Absolute path to the repo checkout to gate.
-    repo: '${env("GATE_REPO","")}'
-    # JSONL results file — truncated at start, one
-    # {"family","repo","rc","secs"} record per run.
-    results: '${env("GATE_RESULTS","$HOME/.local/share/handl-gates/rust.results.jsonl")}'
-    # Extra args appended to the `cargo test` leg (e.g. "-p mycrate").
-    extra: '${env("GATE_EXTRA","")}'
+# Operator-facing knobs — every ${config.gate.*} lookup below carries
+# an env() fallback, so `campaign run` reads GATE_* env vars (see
+# capabilities.env) and a served/rendered campaign can instead pin
+# literal values under config.gate.* (config wins over env()):
+#
+#   config:
+#     gate:
+#       repo: /abs/path/to/checkout      # required — the gate target
+#       results: /path/results.jsonl     # default: ~/.local/share/handl-gates/rust.results.jsonl
+#       extra: "-p mycrate"              # extra args on `cargo test`
+#       target_dir: auto | /abs/path | ""  # CARGO_TARGET_DIR for the env file
+#       env_file: auto | /abs/path | ""    # where ensure-siblings drops it
+#
+result:
+  - event: gate.pass
+    conclusion: success
+  - event: gate.fail
+    conclusion: failure
+  - event: gate.failed
+    conclusion: failure
+  - event: gate.init.failed
+    conclusion: failure
+  - event: ensure.failed
+    conclusion: failure
 
 capabilities:
   env:
     - GATE_REPO
     - GATE_RESULTS
     - GATE_EXTRA
+    - GATE_TARGET_DIR
+    - GATE_ENV_FILE
 
 nodes:
   # --- init: validate inputs, fresh results file --------------------
@@ -49,28 +66,41 @@ nodes:
     params:
       cmd: >-
         set -u;
-        REPO="${config.gate.repo}";
-        [ -n "$REPO" ] || { echo "config.gate.repo is required (set GATE_REPO to an absolute checkout path)"; exit 1; };
+        REPO="${config.gate.repo:-${env("GATE_REPO","")}}";
+        [ -n "$REPO" ] || { echo "gate.repo is required — set GATE_REPO or config.gate.repo to an absolute checkout path"; exit 1; };
         [ -d "$REPO" ] || { echo "no such directory: $REPO"; exit 1; };
-        RES="${config.gate.results}";
+        RES="${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/rust.results.jsonl")}}";
         mkdir -p "$(dirname "$RES")";
         : > "$RES";
         echo "gate-rust: repo=$REPO results=$RES"
-      cwd: "~"
       timeout: 60
       emit:
         "0": gate.due
         default: gate.init.failed
 
+  # --- ensure: sibling layout + shared cargo target env ------------
+  - include: ../lib/ensure-siblings.node.yml
+    id: gate.ensure
+    on: [gate.due]
+    emits: [ensure.done, ensure.failed]
+    params:
+      repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+      target_dir: '${config.gate.target_dir:-${env("GATE_TARGET_DIR","auto")}}'
+      env_file: '${config.gate.env_file:-${env("GATE_ENV_FILE","auto")}}'
+      emit:
+        "0": ensure.done
+        default: ensure.failed
+
   # --- gate: the canonical rust fragment ----------------------------
   - include: ../lib/rust-gate.node.yml
     id: gate.rust
-    on: [gate.due]
+    on: [ensure.done]
     emits: [gate.done, gate.failed]
     params:
-      repo: "${config.gate.repo}"
-      results: "${config.gate.results}"
-      extra: "${config.gate.extra}"
+      repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+      results: '${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/rust.results.jsonl")}}'
+      extra: '${config.gate.extra:-${env("GATE_EXTRA","")}}'
+      env_file: '${config.gate.env_file:-${env("GATE_ENV_FILE","auto")}}'
       emit:
         "0": gate.done
         default: gate.failed
@@ -83,13 +113,12 @@ nodes:
     params:
       cmd: >-
         set -u;
-        F="${config.gate.results}";
+        F="${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/rust.results.jsonl")}}";
         [ -s "$F" ] || { echo "no results record — gate produced nothing"; exit 1; };
         line=$(tail -n 1 "$F");
         rc=$(printf '%s' "$line" | sed -n 's/.*"rc":\([0-9][0-9]*\).*/\1/p');
         echo "gate-rust verdict: $line";
         [ "${rc:-1}" = "0" ]
-      cwd: "~"
       timeout: 60
       emit:
         "0": gate.pass

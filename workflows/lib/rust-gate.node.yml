@@ -1,9 +1,11 @@
 # lib/rust-gate.node.yml — canonical Rust gate fragment.
 #
-# The baseline cargo floor for repos without a bespoke ci.sh:
-# fmt --check → clippy -D warnings → test. Repos with heavier or
-# different gates keep their own ci.sh — this fragment is the
-# *standard lane* campaigns compose for plain Rust checkouts.
+# Runs the repo's own `bash ci.sh` when present (the bespoke gate —
+# worktree sibling layout is ensure-siblings.node.yml's job); else
+# the baseline cargo floor for ci.sh-less repos: fmt --check →
+# clippy -D warnings → test. Repos with heavier or different gates
+# keep their ci.sh — this fragment is the *standard lane* campaigns
+# compose for plain Rust checkouts.
 #
 # Runs in the dev checkout (campaigns are host-side; worktree
 # sibling plumbing is ci.sh/bupha's job, not ours).
@@ -11,7 +13,7 @@
 # Parent owns the event contract — declare `on:`/`emits:` and
 # `params.emit` at the include site; override `params.repo`,
 # `params.results`, `params.family`, `params.timeout`,
-# `params.extra` as needed. When `params.results` is set, every
+# `params.extra`, `params.env_file` as needed. When `params.results` is set, every
 # run appends {"family","repo","rc","secs"} to that JSONL file
 # (skipped family-guard exits record nothing).
 #
@@ -24,10 +26,16 @@
 #       results: "${config.verify.results_dir}/results.jsonl"
 #       emit: {"0": verify.rust.done, default: verify.rust.failed}
 #
+# params.env_file — shell env file sourced before the cargo legs
+# (ensure-siblings.node.yml drops CARGO_TARGET_DIR there so worktree
+# runs share one warm target dir). "auto" (default) =
+# `$(dirname <repo>)/.gate-env/<checkout>.env`; a literal path
+# overrides; "" skips sourcing.
+#
 id: gate.rust
 driver: shell
 params:
-  repo: "${config.gate.repo}"
+  repo: ""
   # When set, the node no-ops (exit 0) unless it equals "rust" — lets
   # one campaign include all three family fragments and run only the
   # selected lane. Empty = always run.
@@ -36,6 +44,7 @@ params:
   results: ""
   # Extra cargo args appended to the test leg (e.g. "-p mycrate").
   extra: ""
+  env_file: "auto"
   timeout: 3600
   cmd: >-
     set -uo pipefail;
@@ -44,10 +53,17 @@ params:
     RESULTS="${params.results}";
     START=$(date +%s);
     cd "$REPO" &&
+    REPO="$(pwd)" &&
+    { EF="${params.env_file}"; [ "$EF" = "auto" ] && EF="$(dirname "$REPO")/.gate-env/$(basename "$REPO").env"; [ -z "$EF" ] || [ ! -f "$EF" ] || . "$EF"; } &&
     export PATH="$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" CARGO_INCREMENTAL=0 &&
-    cargo fmt --all -- --check &&
-    cargo clippy --workspace --all-targets -- -D warnings &&
-    cargo test --workspace ${params.extra};
+    { if [ -f ci.sh ]; then
+        echo "ci.sh present — running the repo's own gate";
+        bash ci.sh;
+      else
+        cargo fmt --all -- --check &&
+        cargo clippy --workspace --all-targets -- -D warnings &&
+        cargo test --workspace ${params.extra};
+      fi; };
     rc=$?;
     if [ -n "$RESULTS" ]; then
       esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g');

@@ -1,8 +1,11 @@
 # handl-verify — fleet-wide gate sweep as a peregrin campaign.
 #
 # What it does: enumerates every repo under the handl-lang workspace
-# that ships a `ci.sh`, fans out `verify.workers` shell workers (each
-# running `bash ci.sh` serially over its slice), joins the per-worker
+# that ships a gate — the committed `workflows/gate.yaml` campaign
+# (the ci.sh replacement) or a legacy `ci.sh` — fans out
+# `verify.workers` shell workers (each running its slice serially:
+# `campaign run workflows/gate.yaml --result` + jq on .conclusion for
+# migrated repos, `bash ci.sh` for the rest), joins the per-worker
 # done events, and reports pass/fail counts plus the failing repos.
 #
 # This is the "ci.sh work" orchestrated by the event graph instead of
@@ -11,8 +14,9 @@
 # `peregrin campaign run main.yaml` (the `start` event walks the same
 # pipeline as `verify.due`).
 #
-# Boundaries: no git/forge calls — workers run each repo's own
-# committed ci.sh in its dev checkout (IN_WORKTREE=0 → the gates'
+# Boundaries: no git/forge calls — workers run each repo's committed
+# gate in its dev checkout. For gate.yaml repos the campaign's
+# ensure-siblings node no-ops (IN_WORKTREE=0 → the gates' own
 # ensure_siblings no-ops and [patch] tables resolve against the real
 # sibling layout). bupha stays the per-push gate; this campaign is
 # the cross-repo sweep.
@@ -24,31 +28,22 @@
 # so the join width is static — empty slices finish instantly.
 name: handl-verify
 
-# Operator-facing knobs — override in the rendered serve yaml config:
-# block after `tamias deploy`, or as HANDL_VERIFY_* env vars on
-# `campaign run` (env() reads them; see capabilities.env).
-config:
-  verify:
-    # Workspace root containing the sibling repo checkouts.
-    workspace: '${env("HANDL_VERIFY_WORKSPACE","$HOME/GitHub/handl-lang")}'
-    # Parallel ci.sh workers — the box is memory-bound (cargo gates
-    # peak multiple GB each); keep this small.
-    workers: '${env("HANDL_VERIFY_WORKERS","6")}'
-    # Per-repo gate timeout (seconds) — `timeout` wraps each ci.sh.
-    gate_timeout: '${env("HANDL_VERIFY_GATE_TIMEOUT","1800")}'
-    # Sweep cron (schedule driver). Set to "" and delete the schedule
-    # node's emits to make the campaign manual-only.
-    cron: '${env("HANDL_VERIFY_CRON","37 5 * * *")}'
-    # hnl toolchain the lib-* gates resolve (HNL env override) and the
-    # dir holding libhnl_ext_*.so (HANDL_EXT_DIR). Defaults point at
-    # the dogfood release build under .ci-target/.
-    hnl: '${env("HANDL_VERIFY_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}'
-    hnl_ext_dir: '${env("HANDL_VERIFY_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}'
-    # Results land here: results.jsonl (one {repo,rc,secs} per repo),
-    # plan/w<i>.txt (each worker's slice), logs/<repo>.log.
-    results_dir: '${env("HANDL_VERIFY_RESULTS_DIR","$HOME/.local/share/handl-verify")}'
-    # Extra repo names to skip even though they ship ci.sh.
-    skip: '${env("HANDL_VERIFY_SKIP","assets workspace lib-mri")}'
+# Operator-facing knobs — every ${config.verify.*} lookup below
+# carries an env() fallback, so `campaign run` reads HANDL_VERIFY_*
+# env vars (see capabilities.env) and a served/rendered campaign can
+# instead pin literal values under config.verify.* (config wins over
+# env()):
+#
+#   config:
+#     verify:
+#       workspace: /abs/path/to/handl-lang
+#       workers: 6
+#       gate_timeout: 1800
+#       cron: "37 5 * * *"
+#       hnl: /abs/path/hnl
+#       hnl_ext_dir: /abs/path
+#       results_dir: /abs/path
+#       skip: "assets workspace lib-mri"
 
 capabilities:
   env:
@@ -68,7 +63,7 @@ nodes:
     on: [start]
     emits: [verify.due]
     params:
-      cron: "${config.verify.cron}"
+      cron: '${config.verify.cron:-${env("HANDL_VERIFY_CRON","37 5 * * *")}}'
       timezone: "America/Sao_Paulo"
 
   # --- toolchain: the lib-* gates all shell out to `hnl` — verify the
@@ -81,20 +76,23 @@ nodes:
     params:
       cmd: >-
         set -u;
-        HNL="${config.verify.hnl}";
-        EXT="${config.verify.hnl_ext_dir}";
+        HNL="${config.verify.hnl:-${env("HANDL_VERIFY_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}}";
+        EXT="${config.verify.hnl_ext_dir:-${env("HANDL_VERIFY_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}}";
         [ -x "$HNL" ] || { echo "no hnl binary at $HNL"; exit 1; };
         ls "$EXT"/libhnl_ext_*.so >/dev/null 2>&1 || { echo "no libhnl_ext_*.so under $EXT"; exit 1; };
         "$HNL" ext list >/dev/null || { echo "hnl ext list failed"; exit 1; };
         echo "toolchain ok: $HNL (+ exts in $EXT)"
-      cwd: "~"
       timeout: 120
       emit:
         "0": verify.toolchain.done
         default: verify.toolchain.failed
 
-  # --- plan: enumerate repos with ci.sh, slice into `workers` chunks,
-  # write plan/w<i>.txt, emit {nodes:[...]} worker specs on stdout.
+  # --- plan: enumerate gated repos (gate.yaml or ci.sh), slice into
+  # `workers` chunks, write plan/w<i>.txt, emit {nodes:[...]} worker
+  # specs on stdout. Workers prefer the repo's committed
+  # workflows/gate.yaml campaign (verdict via `campaign run --result`
+  # + jq on .conclusion) and fall back to `bash ci.sh` for repos that
+  # haven't been migrated yet (the fleet's exception list).
   - id: verify.plan
     driver: shell
     on: [verify.toolchain.done]
@@ -103,16 +101,16 @@ nodes:
       # Literal block — the heredoc below needs real newlines.
       cmd: |
         set -euo pipefail;
-        WS="${config.verify.workspace}";
-        W="${config.verify.workers}";
-        RES="${config.verify.results_dir}";
-        SKIP=" ${config.verify.skip} ";
-        HNL="${config.verify.hnl}";
-        EXT="${config.verify.hnl_ext_dir}";
-        TO="${config.verify.gate_timeout}";
+        WS="${config.verify.workspace:-${env("HANDL_VERIFY_WORKSPACE","$HOME/GitHub/handl-lang")}}";
+        W="${config.verify.workers:-${env("HANDL_VERIFY_WORKERS","6")}}";
+        RES="${config.verify.results_dir:-${env("HANDL_VERIFY_RESULTS_DIR","$HOME/.local/share/handl-verify")}}";
+        SKIP=" ${config.verify.skip:-${env("HANDL_VERIFY_SKIP","assets workspace lib-mri")}} ";
+        HNL="${config.verify.hnl:-${env("HANDL_VERIFY_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}}";
+        EXT="${config.verify.hnl_ext_dir:-${env("HANDL_VERIFY_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}}";
+        TO="${config.verify.gate_timeout:-${env("HANDL_VERIFY_GATE_TIMEOUT","1800")}}";
         mkdir -p "$RES/plan" "$RES/logs";
         : > "$RES/results.jsonl";
-        repos=$(cd "$WS" && for d in */; do d="${d%/}"; [ -f "$d/ci.sh" ] || continue; case "$SKIP" in *" $d "*) continue;; esac; printf '%s\n' "$d"; done | sort);
+        repos=$(cd "$WS" && for d in */; do d="${d%/}"; [ -f "$d/workflows/gate.yaml" ] || [ -f "$d/ci.sh" ] || continue; case "$SKIP" in *" $d "*) continue;; esac; printf '%s\n' "$d"; done | sort);
         n=$(printf '%s\n' "$repos" | grep -c . || true);
         [ "$n" -eq 0 ] && { echo '{"nodes":[]}'; exit 0; }
         specs=(); i=0;
@@ -123,11 +121,11 @@ nodes:
           wto=$(( chunk * TO + 300 ));
           cmd=$(cat <<EOF2
         set -u;
-        export HNL="$HNL" HANDL_EXT_DIR="$EXT" PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin";
+        export HNL="$HNL" HANDL_EXT_DIR="$EXT" PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin";
         while IFS= read -r repo; do
           [ -z "\$repo" ] && continue;
           s=\$(date +%s);
-          if (cd "\$repo" && timeout $TO bash ci.sh) >"$RES/logs/\$repo.log" 2>&1; then rc=0; else rc=\$?; fi;
+          if (cd "\$repo" && if [ -f workflows/gate.yaml ]; then GATE_REPO="\$PWD" GATE_RESULTS="\$PWD/.gate-results.jsonl" timeout $TO "$HOME/.local/bin/peregrin" campaign run workflows/gate.yaml --result "\$PWD/.ci-result.json" && jq -e '.conclusion == "success"' "\$PWD/.ci-result.json" >/dev/null; else timeout $TO bash ci.sh; fi) >"$RES/logs/\$repo.log" 2>&1; then rc=0; else rc=\$?; fi;
           e=\$(date +%s);
           printf '{"repo":"%s","rc":%s,"secs":%s}\n' "\$repo" "\$rc" "\$((e - s))" >> "$RES/results.jsonl";
         done < "$RES/plan/w$i.txt";
@@ -142,7 +140,6 @@ nodes:
           specs+=("$spec"); i=$((i + 1));
         done;
         jq -n --argjson specs "$(printf '%s\n' "${specs[@]}" | jq -s .)" '{nodes:$specs}'
-      cwd: "~"
       timeout: 120
       emit:
         "0": verify.plan
@@ -171,7 +168,7 @@ nodes:
     params:
       cmd: >-
         set -u;
-        RES="${config.verify.results_dir}";
+        RES="${config.verify.results_dir:-${env("HANDL_VERIFY_RESULTS_DIR","$HOME/.local/share/handl-verify")}}";
         f="$RES/results.jsonl";
         [ -s "$f" ] || { echo "no results recorded"; exit 1; };
         total=$(wc -l < "$f" | tr -d ' ');
@@ -183,7 +180,6 @@ nodes:
         } | tee "$RES/summary.txt";
         echo "logs: $RES/logs/  results: $f";
         [ "$fails" -eq 0 ]
-      cwd: "~"
       timeout: 120
       emit:
         "0": verify.report.done

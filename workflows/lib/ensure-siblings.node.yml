@@ -1,0 +1,93 @@
+# lib/ensure-siblings.node.yml — sibling-layout restoration fragment.
+#
+# Ports the `ensure_siblings` half of every repo's ci.sh into a
+# composable node: in a detached worktree (bupha/peregrin push gate),
+# the committed `[patch]`/path-dep tables spell siblings as `../<repo>`
+# — this node recreates that layout in the worktree's parent:
+# `../<repo>` -> THIS checkout (the sha under test), every other
+# sibling -> the real checkout under the workspace root. In the main
+# checkout it no-ops (IN_WORKTREE=0) — the real sibling layout is
+# already correct.
+#
+# It also maintains the shared cargo target dir ci.sh used to export:
+# shell nodes are separate processes, so `export` cannot cross into
+# the gate node — instead this node writes a tiny env file
+# (`export CARGO_TARGET_DIR=...`) that env_file-aware gate fragments
+# (rust-gate, python-gate) source before building. The file lands at
+# `$(dirname <repo>)/.gate-env/<checkout>.env` — outside every repo,
+# computable identically by both nodes from `params.repo` alone.
+#
+# Parent owns the event contract — declare `on:`/`emits:` and
+# `params.emit` at the include site; override `params.repo`,
+# `params.target_dir`, `params.env_file`, `params.timeout` as needed.
+#
+#   - include: ../lib/ensure-siblings.node.yml
+#     id: gate.ensure
+#     on: [gate.due]
+#     emits: [ensure.done, ensure.failed]
+#     params:
+#       repo: "/abs/path/to/checkout"
+#       emit: {"0": ensure.done, default: ensure.failed}
+#
+# params.target_dir — the CARGO_TARGET_DIR value written to the env
+# file: "auto" (default) = `$WORKSPACE_ROOT/.ci-target/<repo>` (the
+# ci.sh shared-target convention — one warm target per repo across
+# worktrees), a literal path overrides, "" skips the env file.
+# params.env_file — where the env file lands: "auto" (default) =
+# `$(dirname <repo>)/.gate-env/<checkout-basename>.env`, a literal
+# path overrides, "" skips writing (target_dir still resolved for
+# logging).
+id: gate.ensure-siblings
+driver: shell
+params:
+  repo: ""
+  target_dir: "auto"
+  env_file: "auto"
+  timeout: 120
+  cmd: >-
+    set -uo pipefail;
+    REPO="${params.repo}";
+    [ -n "$REPO" ] || { echo "params.repo is required (absolute checkout path)"; exit 1; };
+    REPO="$(cd "$REPO" 2>/dev/null && pwd)" || { echo "no such directory: ${params.repo}"; exit 1; };
+    CHECKOUT="$(basename "$REPO")";
+    GIT_COMMON="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { echo "not a git checkout: $REPO"; exit 1; };
+    MAIN_CHECKOUT="$(dirname "$GIT_COMMON")";
+    REPO_NAME="$(basename "$MAIN_CHECKOUT")";
+    WORKSPACE_ROOT="$(dirname "$MAIN_CHECKOUT")";
+    IN_WORKTREE=0; [ "$REPO" != "$MAIN_CHECKOUT" ] && IN_WORKTREE=1;
+    TD="${params.target_dir}";
+    [ "$TD" = "auto" ] && TD="$WORKSPACE_ROOT/.ci-target/$REPO_NAME";
+    EF="${params.env_file}";
+    [ "$EF" = "auto" ] && EF="$(dirname "$REPO")/.gate-env/$CHECKOUT.env";
+    if [ -n "$TD" ] && [ -n "$EF" ]; then
+      mkdir -p "$(dirname "$EF")";
+      printf 'export CARGO_TARGET_DIR=%q\n' "$TD" > "$EF";
+      echo "ensure-siblings: env file $EF (CARGO_TARGET_DIR=$TD)";
+    fi;
+    if [ "$IN_WORKTREE" != 1 ]; then
+      echo "ensure-siblings: main checkout ($REPO) — sibling layout already real; nothing to do";
+      exit 0;
+    fi;
+    parent="$(cd "$REPO/.." && pwd)";
+    if [ "$parent" = "$WORKSPACE_ROOT" ]; then
+      echo "ensure-siblings: worktree sits inside $WORKSPACE_ROOT — ../$REPO_NAME would" >&2;
+      echo "       resolve to the dev checkout instead of this sha. Move the" >&2;
+      echo "       worktree base outside the workspace root." >&2;
+      exit 1;
+    fi;
+    if [ -e "$parent/$REPO_NAME" ] && [ ! -L "$parent/$REPO_NAME" ]; then
+      echo "ensure-siblings: $parent/$REPO_NAME is a real directory — refusing to clobber" >&2;
+      exit 1;
+    fi;
+    ln -sfn "$REPO" "$parent/$REPO_NAME";
+    for d in "$WORKSPACE_ROOT"/*/; do
+      name="$(basename "$d")";
+      [ "$name" = "$REPO_NAME" ] && continue;
+      if [ -L "$parent/$name" ] || [ ! -e "$parent/$name" ]; then
+        ln -sfn "$d" "$parent/$name";
+      fi;
+    done;
+    echo "ensure-siblings: worktree layout restored under $parent (self -> $REPO)"
+  emit:
+    "0": ensure.done
+    default: ensure.failed

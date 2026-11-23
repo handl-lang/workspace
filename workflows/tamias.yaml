@@ -8,7 +8,7 @@
 #
 # This is the distribution half of the ci.sh retirement: each repo
 # drops a thin committed workflows/gate.yaml that includes the
-# fragments via `tamias:handl-gates//lib/<family>-gate.node.yml`,
+# family campaign via `tamias:handl-gates@<ver>//gates/<family>.yaml`,
 # and bupha runs `peregrin campaign run workflows/gate.yaml` per
 # push. gates/*.yaml are the same composition pre-packaged for
 # ad-hoc/installed-bundle use (`campaign submit --bundle
@@ -20,12 +20,13 @@
 # for standalone installs during the transition; under handl-gates
 # they are inert payload files.
 name: handl-gates
-version: "0.1.0"
+version: "0.2.0"
 # `peregrin-bundle` routes install/deploy/uninstall through
 # `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
 type: peregrin-bundle
 description: >-
-  Canonical rust/python/handl gate fragments (lib/) plus one-shot
+  Canonical ensure-siblings/rust/python/handl gate fragments (lib/)
+  plus one-shot
   per-family gate campaigns (gates/) and the fleet verify campaigns.
   No git/forge calls — gates run the target repo's own gate recipe
   (committed ci.sh when present, else the family baseline) in its

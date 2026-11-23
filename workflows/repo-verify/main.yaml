@@ -17,21 +17,19 @@
 # event walks the same pipeline as verify.due.
 name: repo-verify
 
-# Operator-facing knobs — override in the rendered serve yaml config:
-# block after `tamias deploy`, or as REPO_VERIFY_* env vars on
-# `campaign run` (env() reads them; see capabilities.env).
-config:
-  verify:
-    # Absolute path to the repo checkout to verify.
-    repo: '${env("REPO_VERIFY_REPO","")}'
-    # Gate family: rust | python | handl — or "" to run all three.
-    family: '${env("REPO_VERIFY_FAMILY","")}'
-    # hnl toolchain for the handl lane (HNL + HANDL_EXT_DIR).
-    hnl: '${env("REPO_VERIFY_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}'
-    hnl_ext_dir: '${env("REPO_VERIFY_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}'
-    # Results land here: results.jsonl ({family,repo,rc,secs} per
-    # lane that actually ran — skipped lanes record nothing).
-    results_dir: '${env("REPO_VERIFY_RESULTS_DIR","$HOME/.local/share/repo-verify")}'
+# Operator-facing knobs — every ${config.verify.*} lookup below
+# carries an env() fallback, so `campaign run` reads REPO_VERIFY_*
+# env vars (see capabilities.env) and a served/rendered campaign can
+# instead pin literal values under config.verify.* (config wins over
+# env()):
+#
+#   config:
+#     verify:
+#       repo: /abs/path/to/checkout    # required — the gate target
+#       family: rust | python | handl  # "" runs all three lanes
+#       hnl: /abs/path/hnl
+#       hnl_ext_dir: /abs/path
+#       results_dir: /abs/path
 
 capabilities:
   env:
@@ -50,16 +48,15 @@ nodes:
     params:
       cmd: >-
         set -u;
-        REPO="${config.verify.repo}";
-        [ -n "$REPO" ] || { echo "config.verify.repo is required (absolute checkout path)"; exit 1; };
+        REPO="${config.verify.repo:-${env("REPO_VERIFY_REPO","")}}";
+        [ -n "$REPO" ] || { echo "verify.repo is required — set REPO_VERIFY_REPO or config.verify.repo (absolute checkout path)"; exit 1; };
         [ -d "$REPO" ] || { echo "no such directory: $REPO"; exit 1; };
-        F="${config.verify.family}";
+        F="${config.verify.family:-${env("REPO_VERIFY_FAMILY","")}}";
         case "$F" in ""|rust|python|handl) ;; *) echo "unknown family: $F (rust|python|handl|empty=all)"; exit 1;; esac;
-        RES="${config.verify.results_dir}";
+        RES="${config.verify.results_dir:-${env("REPO_VERIFY_RESULTS_DIR","$HOME/.local/share/repo-verify")}}";
         mkdir -p "$RES";
         : > "$RES/results.jsonl";
         echo "repo-verify: repo=$REPO family=${F:-all}"
-      cwd: "~"
       timeout: 60
       emit:
         "0": verify.due
@@ -75,9 +72,9 @@ nodes:
     on: [verify.due]
     emits: [verify.gate.end]
     params:
-      family: "${config.verify.family}"
-      repo: "${config.verify.repo}"
-      results: "${config.verify.results_dir}/results.jsonl"
+      family: '${config.verify.family:-${env("REPO_VERIFY_FAMILY","")}}'
+      repo: '${config.verify.repo:-${env("REPO_VERIFY_REPO","")}}'
+      results: '${config.verify.results_dir:-${env("REPO_VERIFY_RESULTS_DIR","$HOME/.local/share/repo-verify")}}/results.jsonl'
       emit:
         "0": verify.gate.end
         default: verify.gate.end
@@ -87,9 +84,9 @@ nodes:
     on: [verify.due]
     emits: [verify.gate.end]
     params:
-      family: "${config.verify.family}"
-      repo: "${config.verify.repo}"
-      results: "${config.verify.results_dir}/results.jsonl"
+      family: '${config.verify.family:-${env("REPO_VERIFY_FAMILY","")}}'
+      repo: '${config.verify.repo:-${env("REPO_VERIFY_REPO","")}}'
+      results: '${config.verify.results_dir:-${env("REPO_VERIFY_RESULTS_DIR","$HOME/.local/share/repo-verify")}}/results.jsonl'
       emit:
         "0": verify.gate.end
         default: verify.gate.end
@@ -99,11 +96,11 @@ nodes:
     on: [verify.due]
     emits: [verify.gate.end]
     params:
-      family: "${config.verify.family}"
-      repo: "${config.verify.repo}"
-      results: "${config.verify.results_dir}/results.jsonl"
-      hnl: "${config.verify.hnl}"
-      hnl_ext_dir: "${config.verify.hnl_ext_dir}"
+      family: '${config.verify.family:-${env("REPO_VERIFY_FAMILY","")}}'
+      repo: '${config.verify.repo:-${env("REPO_VERIFY_REPO","")}}'
+      results: '${config.verify.results_dir:-${env("REPO_VERIFY_RESULTS_DIR","$HOME/.local/share/repo-verify")}}/results.jsonl'
+      hnl: '${config.verify.hnl:-${env("REPO_VERIFY_HNL","$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl")}}'
+      hnl_ext_dir: '${config.verify.hnl_ext_dir:-${env("REPO_VERIFY_HNL_EXT_DIR","$HOME/GitHub/handl-lang/.ci-target/dogfood/release")}}'
       emit:
         "0": verify.gate.end
         default: verify.gate.end
@@ -125,7 +122,7 @@ nodes:
     params:
       cmd: >-
         set -u;
-        RES="${config.verify.results_dir}";
+        RES="${config.verify.results_dir:-${env("REPO_VERIFY_RESULTS_DIR","$HOME/.local/share/repo-verify")}}";
         f="$RES/results.jsonl";
         [ -s "$f" ] || { echo "no gate ran — check family/repo config"; exit 1; };
         total=$(wc -l < "$f" | tr -d ' ');
@@ -137,7 +134,6 @@ nodes:
           awk -F'"rc":' '{split($2,a,","); if (a[1]+0 != 0) { split($0,b,"\"repo\":\""); split(b[2],c,"\""); print "  FAIL", c[1], "rc=" a[1] }}' "$f";
         } | tee "$RES/summary.txt";
         [ "$fails" -eq 0 ]
-      cwd: "~"
       timeout: 60
       emit:
         "0": verify.report.done

@@ -6,6 +6,12 @@
 # `params.src_dir` picks the source root for the fallback path
 # (handl-packages for the modern layout, src for the legacy one).
 #
+# The fallback path ports scripts/hnl-gate.sh: only *canonical*
+# dialect `.hnl` files are gated — arrow/contract-dialect sources
+# (`~>`, `cap`/`op`/`handl`/`tag`, leading `axiom`) are detected and
+# skipped, `.test.hnl` files run under `hnl test --jobs 1` with
+# missing-host-native failures tolerated.
+#
 # Parent owns the event contract — declare `on:`/`emits:` and
 # `params.emit` at the include site; override `params.repo`,
 # `params.results`, `params.family`, `params.hnl`,
@@ -19,50 +25,116 @@
 #     on: [verify.due]
 #     emits: [verify.hnl.done, verify.hnl.failed]
 #     params:
-#       repo: "${config.verify.repo}"
-#       results: "${config.verify.results_dir}/results.jsonl"
+#       repo: "/abs/path/to/checkout"
+#       results: "/abs/path/results.jsonl"
 #       emit: {"0": verify.hnl.done, default: verify.hnl.failed}
 #
 id: gate.handl
 driver: shell
 params:
-  repo: "${config.gate.repo}"
+  repo: ""
   # Family guard — see rust-gate.node.yml; match is "handl".
   family: ""
   # JSONL results file — appended on every real run (pass or fail).
   results: ""
-  hnl: "${config.gate.hnl}"
-  hnl_ext_dir: "${config.gate.hnl_ext_dir}"
+  # hnl binary + dir holding libhnl_ext_*.so — defaults are the
+  # dogfood release build under handl-lang/.ci-target/.
+  hnl: "$HOME/GitHub/handl-lang/.ci-target/dogfood/release/hnl"
+  hnl_ext_dir: "$HOME/GitHub/handl-lang/.ci-target/dogfood/release"
   src_dir: ""
   timeout: 1800
-  cmd: >-
-    set -uo pipefail;
-    F="${params.family}"; [ -z "$F" ] || [ "$F" = "handl" ] || { echo "family=$F — skipped"; exit 0; };
-    REPO="${params.repo}";
-    RESULTS="${params.results}";
-    START=$(date +%s);
+  cmd: |
+    set -uo pipefail
+    F="${params.family}"; [ -z "$F" ] || [ "$F" = "handl" ] || { echo "family=$F — skipped"; exit 0; }
+    REPO="${params.repo}"
+    RESULTS="${params.results}"
+    START=$(date +%s)
     cd "$REPO" &&
     export HNL="${params.hnl}" HANDL_EXT_DIR="${params.hnl_ext_dir}"
       PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" &&
     { if [ -f ci.sh ]; then
-        bash ci.sh;
+        echo "ci.sh present — running the repo's own gate"
+        bash ci.sh
       else
-        SRC="${params.src_dir}";
-        [ -z "$SRC" ] && { [ -d handl-packages ] && SRC=handl-packages || SRC=src; };
-        sources=$(find "$SRC" -name '*.hnl' 2>/dev/null | sort);
-        if [ -n "$sources" ]; then
-          "$HNL" typecheck $sources &&
-          "$HNL" lint $sources &&
-          for t in $(find "$SRC" -name '*.test.hnl' | sort); do "$HNL" test "$t"; done;
+        SRC="${params.src_dir}"
+        [ -z "$SRC" ] && { [ -d handl-packages ] && SRC=handl-packages || SRC=src; }
+        # Canonical-dialect detector — ported verbatim from
+        # scripts/hnl-gate.sh (arrow/contract `.hnl` cannot be parsed
+        # by the canonical tools).
+        is_canonical() {
+          awk '
+          function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+          function strip_comment(s) { gsub(/--.*$/, "", s); return trim(s) }
+          function top_level(s) {
+            if (s ~ /^[[:space:]]*$/) return ""
+            if (s ~ /^[[:space:]]/) return ""
+            return strip_comment(s)
+          }
+          BEGIN { first=1; arrow=0 }
+          {
+            tl = top_level($0)
+            if (first && tl != "") {
+              if (tl ~ /^axiom /) { exit 1 }
+              first = 0
+            }
+            if (tl ~ /^(cap|op|handl|tag) /) { arrow = 1 }
+            code = strip_comment($0)
+            if (code != "") {
+              if (index(code, "|||") || code ~ /(^|[^a-zA-Z0-9_.])(arr|first|choice|loop|comp|app)\(/)
+                { arrow = 1 }
+              if (code ~ /(^|[^a-zA-Z0-9_.])~>/) { arrow = 1 }
+              if (code ~ /(^|[^a-zA-Z0-9_.])rec[[:space:]]*\{/) { arrow = 1 }
+            }
+          }
+          END { exit (arrow ? 1 : 0) }
+          ' "$1"
+        }
+        sources=(); tests=(); skipped=0
+        while IFS= read -r f; do
+          if is_canonical "$f"; then
+            case "$f" in
+              *.test.hnl) tests+=("$f") ;;
+              *) sources+=("$f") ;;
+            esac
+          else
+            skipped=$((skipped + 1))
+          fi
+        done < <(find "$SRC" -name '*.hnl' 2>/dev/null | sort)
+        if [ "${#sources[@]}" -eq 0 ] && [ "${#tests[@]}" -eq 0 ]; then
+          echo "only non-canonical (arrow/contract) sources under $SRC/ — vacuous pass"
         else
-          echo "no .hnl sources under $SRC — vacuous pass";
-        fi;
-      fi; };
-    rc=$?;
+          echo "== hnl typecheck (${#sources[@]} sources, ${#tests[@]} test files, ${skipped} dialect skipped) =="
+          "$HNL" typecheck "${sources[@]}" "${tests[@]}" &&
+          echo "== hnl lint ==" &&
+          "$HNL" lint "${sources[@]}" "${tests[@]}" &&
+          if [ "${#tests[@]}" -gt 0 ]; then
+            echo "== hnl test (per file; in-file jobs: 1) =="
+            failed_files=0
+            for t in "${tests[@]}"; do
+              echo "-- $t"
+              if out=$("$HNL" test --jobs 1 "$t" 2>&1); then
+                printf '%s\n' "$out" | tail -2
+                continue
+              fi
+              printf '%s\n' "$out"
+              # Missing host natives are host-dependent by construction:
+              # report them, but do not fail the gate on them alone.
+              real=$(printf '%s\n' "$out" | grep '^FAIL' | grep -vc 'call_host: function ' || true)
+              if [ "${real:-0}" -eq 0 ]; then
+                echo "   (all failures are missing host natives — not counted)"
+              else
+                failed_files=$((failed_files + 1))
+              fi
+            done
+            [ "$failed_files" -eq 0 ] || { echo "hnl gate FAILED: $failed_files test file(s) with real failures." >&2; exit 1; }
+          fi
+        fi
+      fi; }
+    rc=$?
     if [ -n "$RESULTS" ]; then
-      esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g');
-      printf '{"family":"handl","repo":"%s","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true;
-    fi;
+      esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
+      printf '{"family":"handl","repo":"%s","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true
+    fi
     exit $rc
   emit:
     "0": gate.done
