@@ -40,9 +40,10 @@ patches). Repo families:
   `host-cli`.
 - `host-cli` — the `hnl` binary (a dumb ext host; commands are dynamically
   loaded `ext-*` cdylibs). `host-lsp` — LSP crates. `docs` — the docs site.
-- `workspace` — org-level repo: `automation/` holds the shared agent
-  skills and cross-repo tooling (merged from the retired
-  `handl-lang/automation` repo), plus templates and gate workflows.
+- `workspace` — org-level repo (public): shared agent `skills/`,
+  cross-repo gate `scripts/`, `templates/` (README skeletons, xtask,
+  gate.py), `workflows/` (the handl-gates bundle source), and the
+  rename runbook. Absorbed the retired `handl-lang/automation` repo.
 - `project/` — in each repo, a **git worktree** of that repo's `project`
   branch (gitignored on `main`, ADR-0129): `adrs/`, `notes/`, `tasks/`,
   `design/`.

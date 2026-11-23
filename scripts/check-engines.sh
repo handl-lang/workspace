@@ -10,9 +10,6 @@
 set -uo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-if [ ! -d "$root/engine-exec" ]; then
-    root="$(cd "$(dirname "$0")/../../.." && pwd)"
-fi
 
 quick=0
 repos=()

@@ -1,18 +1,22 @@
 # workspace
 
-Org-level templates, vendored gate tooling, and shared agent automation
-for `handl-lang/*` repos.
+Org-level home for `handl-lang/*` repos: templates, vendored gate
+tooling, shared agent automation, and the gate-workflow bundle source.
 
-- `automation/` — merged from the retired `handl-lang/automation` repo:
-  org-wide agent skills (`skills/`), cross-repo shell/python gates
-  (`scripts/`), and the per-push `workflows/gate.yaml` campaign.
 - `templates/README/` — README skeletons per repo family (`engine`,
-  `engine-compile`, `tool`, `tool-sdkgen`, `lib`, `kit`, `host`, `pitch`,
-  `python`, `bare` + transitional variants) and the index with rules.
+  `engine-compile`, `engine-sdkgen`, `tool`, `lib`, `kit`, `host`,
+  `pitch`, `python`, `bare` + transitional variants) and the index with rules.
 - `templates/xtask/` — vendored `cargo xtask` crate for Rust repos.
 - `templates/gate.py` — vendored python gate (`uv run scripts/gate.py`).
+- `skills/` — org-wide agent skills (`workspace-structure`, `write-adr`);
+  consumed via `.agents/skills/` symlinks or copies in each repo.
+- `scripts/` — cross-repo shell/python gates (`check-engines`,
+  `clone-gate`, `manifest-gate`, `prune-patches`).
+- `workflows/` — the `handl-gates`/`tamias` campaign bundle source
+  (`gate.yaml` is this repo's own per-push gate).
 - `audit-2026-11-20.md` — repo-family consistency audit (reference).
 - `renames/RUNBOOK.md` — repo rename procedure + deferred GH ops.
 
 See `templates/README/README.md` for the canonical rules (MIT-only, no
-provenance, docs = bare link, manifest metadata requirements).
+provenance, docs = bare link, manifest metadata requirements) and
+`AGENTS.md` for agent-session conventions.

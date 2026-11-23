@@ -62,10 +62,6 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(__file__).resolve().parent.parent.parent
-    # scripts/ moved one level deeper when automation merged into
-    # workspace/; the org root is the checkout holding the sibling repos.
-    if not (root / "engine-exec").is_dir():
-        root = root.parent
     targets = [(root / ".cargo" / "config.toml", root)]
     targets += [(p, p.parent) for p in sorted(root.glob("*/Cargo.toml"))]
     targets += [(p, p.parent) for p in sorted(root.glob("*/*/Cargo.toml"))]

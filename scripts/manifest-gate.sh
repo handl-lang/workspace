@@ -11,9 +11,6 @@
 set -uo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-# scripts/ moved one level deeper when automation merged into workspace/;
-# fall back to the org checkout root (the dir holding the sibling repos).
-[ -d "$root/engine-exec" ] || root="$(cd "$(dirname "$0")/../../.." && pwd)"
 repos=("$@")
 if [ ${#repos[@]} -eq 0 ]; then
     mapfile -t repos < <(cd "$root" && ls -d engine-* 2>/dev/null)
