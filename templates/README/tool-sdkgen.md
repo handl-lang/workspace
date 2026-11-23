@@ -8,10 +8,10 @@
 ## Development
 
 ```bash
-cargo xtask gate        # fmt --check → clippy -D warnings → test → doc
+cargo run --manifest-path xtask/Cargo.toml -- gate   # fmt → clippy → test → doc
 ```
 
-`cargo xtask` wraps the repo's `xtask/` crate; `ci.sh` is the gate entry.
+`xtask/` provides the repo's `xtask/` crate; `ci.sh` is the gate entry.
 Deps resolve from git, so no sibling checkouts are needed; a plain clone
 test-runs as-is.
 

@@ -11,10 +11,10 @@
 ## Development
 
 ```bash
-cargo xtask gate        # fmt --check → clippy -D warnings → test → doc
+cargo run --manifest-path xtask/Cargo.toml -- gate   # fmt → clippy → test → doc
 ```
 
-`cargo xtask` wraps the repo's `xtask/` crate; `ci.sh` is the gate entry. Sibling deps are git
+`xtask/` provides the repo's `xtask/` crate; `ci.sh` is the gate entry. Sibling deps are git
 dependencies (`branch = "main"`); the workspace-root `[patch]` tables resolve
 them from sibling checkouts for local development.
 
