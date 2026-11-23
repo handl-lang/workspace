@@ -1,0 +1,3 @@
+# gate run artifacts (workflows/gate.yaml)
+.ci-result.json
+.gate-results.jsonl

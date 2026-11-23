@@ -36,7 +36,7 @@ specialized sub-template when a prefix grows variants (`tool.md` →
 | `host.md` | `host`, `host-*` — host is **distribution only** (binaries, servers) |
 | `pitch.md` | `pitch-*` — Slidev decks |
 | `python.md` | `eqsat`, `kernelopt`, `gamekit`, `discoverykit`, `mlopt-product`, `research-*`, misc python |
-| `bare.md` | everything else — `kernel`, `egraph`, `discovery`, `docs`, `automation`, `test`, `source-onnx`, `slidev-theme-handl` (rename pending), `extension-*` |
+| `bare.md` | everything else — `kernel`, `egraph`, `discovery`, `docs`, `workspace`, `test`, `source-onnx`, `slidev-theme-handl` (rename pending), `extension-*` |
 
 ## Pending renames (see myco P-001 / weekend epic)
 

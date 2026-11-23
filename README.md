@@ -1,7 +1,11 @@
 # workspace
 
-Org-level templates and vendored gate tooling for `handl-lang/*` crate repos.
+Org-level templates, vendored gate tooling, and shared agent automation
+for `handl-lang/*` repos.
 
+- `automation/` — merged from the retired `handl-lang/automation` repo:
+  org-wide agent skills (`skills/`), cross-repo shell/python gates
+  (`scripts/`), and the per-push `workflows/gate.yaml` campaign.
 - `templates/README/` — README skeletons per repo family (`engine`,
   `engine-compile`, `tool`, `tool-sdkgen`, `lib`, `kit`, `host`, `pitch`,
   `python`, `bare` + transitional variants) and the index with rules.
