@@ -95,6 +95,28 @@ params:
             skipped=$((skipped + 1))
           fi
         done < <(find "$SRC" -name '*.hnl' 2>/dev/null | sort)
+        # A canonical-looking file whose relative imports resolve to
+        # non-canonical (arrow/contract) sources cannot be gated by
+        # the canonical tools — the import itself fails typecheck.
+        # Demote it to the dialect-skip count; when the dep migrates
+        # to canonical dialect the file is gated again automatically.
+        # Missing import targets stay gated — a broken import is a
+        # real failure, not a dialect skip.
+        dep_canonical() {
+          local f="$1" dir imp cand bad=0
+          dir="$(dirname "$f")"
+          while IFS= read -r imp; do
+            cand="$dir/$imp.hnl"; [ -f "$cand" ] || cand="$dir/$imp/index.hnl"
+            if [ -f "$cand" ] && ! is_canonical "$cand"; then bad=1; break; fi
+          done < <(grep -oE 'from[[:space:]]+"[^"]+"' "$f" 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/' | grep '^\.')
+          [ "$bad" = 0 ]
+        }
+        src_keep=(); for f in ${sources[@]+"${sources[@]}"}; do
+          if dep_canonical "$f"; then src_keep+=("$f"); else skipped=$((skipped + 1)); fi
+        done; sources=("${src_keep[@]}")
+        tst_keep=(); for f in ${tests[@]+"${tests[@]}"}; do
+          if dep_canonical "$f"; then tst_keep+=("$f"); else skipped=$((skipped + 1)); fi
+        done; tests=("${tst_keep[@]}")
         if [ "${#sources[@]}" -eq 0 ] && [ "${#tests[@]}" -eq 0 ]; then
           echo "only non-canonical (arrow/contract) sources under $SRC/ — vacuous pass"
         else
