@@ -11,7 +11,7 @@
 
 [[repos]]
 name = "handl-lang/workspace"
-dir = "/home/luis/GitHub/handl-lang/workspace"
+dir = "~//GitHub/handl-lang/workspace"
 branch = "refs/heads/main"
   [repos.runner]
   kind = "script"
