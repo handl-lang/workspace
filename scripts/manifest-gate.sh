@@ -7,7 +7,7 @@
 # in a clean clone). Dev overrides belong in a gitignored `.cargo/config.toml`.
 #
 #   scripts/manifest-gate.sh                 # all engine-* repos
-#   scripts/manifest-gate.sh engine-lex ...
+#   scripts/manifest-gate.sh tool-lex ...
 set -uo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"

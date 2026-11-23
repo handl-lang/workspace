@@ -4,7 +4,7 @@ Org-level home for `handl-lang/*` repos: templates, vendored gate
 tooling, shared agent automation, and the gate-workflow bundle source.
 
 - `templates/README/` — README skeletons per repo family (`engine`,
-  `engine-compile`, `engine-sdkgen`, `tool`, `lib`, `kit`, `host`,
+  `tool-compile`, `tool-codegen`, `tool`, `lib`, `kit`, `host`,
   `pitch`, `python`, `bare` + transitional variants) and the index with rules.
 - `templates/xtask/` — vendored `cargo xtask` crate for Rust repos.
 - `templates/gate.py` — vendored python gate (`uv run scripts/gate.py`).

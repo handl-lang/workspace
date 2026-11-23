@@ -9,7 +9,7 @@ after rename, and git URLs in manifests can stay on old names until then.
 | Old | New | Count |
 |---|---|---|
 | `sdkgen-{c,cli,file,python,webidl}` | `tool-sdkgen-{c,cli,file,python,webidl}` | 5 |
-| `compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | `engine-compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | 8 |
+| `compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | `tool-compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | 8 |
 | `slidev-theme` | `slidev-theme-handl` | 1 |
 | `mlopt` | `research-mlopt` | 1 |
 | `host-tensor` | TBD (`lib-*`/`engine-*` — decision pending) | 1 |
@@ -51,7 +51,7 @@ sibling checkout must be updated in the same wave:
 ## Suggested order (one family per commit wave)
 
 1. `sdkgen-*` → `tool-sdkgen-*` (5) — smallest, validates the procedure.
-2. `compile-*` → `engine-compile-*` (8).
+2. `compile-*` → `tool-compile-*` (8).
 3. `slidev-theme` → `slidev-theme-handl`, `mlopt` → `research-mlopt` (1 each).
 4. `host-tensor` — after family decision.
 

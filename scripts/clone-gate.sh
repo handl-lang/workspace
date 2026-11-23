@@ -6,7 +6,7 @@
 # so untracked/ignored dev files cannot leak in) and runs the CI gate there.
 #
 #   scripts/clone-gate.sh                 # all engine-* repos
-#   scripts/clone-gate.sh engine-lex ...  # a subset
+#   scripts/clone-gate.sh tool-lex ...  # a subset
 #   CI_STAGE=build scripts/clone-gate.sh  # override the cargo subcommand
 #
 # Exit 1 if any repo fails. This is the check that keeps the `[patch]` tables

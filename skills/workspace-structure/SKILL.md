@@ -21,9 +21,9 @@ patches). Repo families:
   schema), `handl-value` (`Value` shapes), `handl-calculus`, `handl-ops`,
   `handl-ext`, `ops`/`prim`/`prim-handl`/`defining-handl`.
 - `engine` — the `hnl-engine` umbrella. Each engine is **its own repo**:
-  `engine-lex*`, `engine-parse*`, `engine-exec*` (tree-walk, bytecode,
-  cranelift), `engine-typecheck*` (handl, nbe), `engine-fmt`, `engine-lint`,
-  `engine-test`, `engine-transform*`, `engine-compile-*`. Engines are generic
+  `tool-lex*`, `tool-parse*`, `exec*` (tree-walk, bytecode,
+  cranelift), `tool-typecheck*` (handl, nbe), `tool-fmt`, `tool-lint`,
+  `tool-test`, `tool-transform*`, `tool-compile-*`. Engines are generic
   and data-driven — dispatch on `lang.eval`/`lang.types`/`lang.grammar`, never
   a Rust `match` on node-kind strings.
 - `kit-prelude` — the canonical kit: a `Kit` wrapper over the assembled
