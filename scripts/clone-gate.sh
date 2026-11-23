@@ -5,7 +5,7 @@
 # This extracts the committed tree of each repo into a temp dir (`git archive`,
 # so untracked/ignored dev files cannot leak in) and runs the CI gate there.
 #
-#   scripts/clone-gate.sh                 # all engine-* repos
+#   scripts/clone-gate.sh                 # all engine*/exec*/tool-* repos
 #   scripts/clone-gate.sh tool-lex ...  # a subset
 #   CI_STAGE=build scripts/clone-gate.sh  # override the cargo subcommand
 #
@@ -17,7 +17,7 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 stage="${CI_STAGE:-test}"
 repos=("$@")
 if [ ${#repos[@]} -eq 0 ]; then
-    mapfile -t repos < <(cd "$root" && ls -d engine-* 2>/dev/null)
+    mapfile -t repos < <(cd "$root" && ls -d engine* exec* tool-* 2>/dev/null)
 fi
 
 fail=0

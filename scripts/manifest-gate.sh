@@ -6,14 +6,14 @@
 # viewer) or when a `Cargo.lock` is committed (dev state that breaks `--locked`
 # in a clean clone). Dev overrides belong in a gitignored `.cargo/config.toml`.
 #
-#   scripts/manifest-gate.sh                 # all engine-* repos
+#   scripts/manifest-gate.sh                 # all engine*/exec*/tool-* repos
 #   scripts/manifest-gate.sh tool-lex ...
 set -uo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 repos=("$@")
 if [ ${#repos[@]} -eq 0 ]; then
-    mapfile -t repos < <(cd "$root" && ls -d engine-* 2>/dev/null)
+    mapfile -t repos < <(cd "$root" && ls -d engine* exec* tool-* 2>/dev/null)
 fi
 
 fail=0

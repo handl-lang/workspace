@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gate every engine-* repo through the repo's own `ci.sh`.
+# Gate every engine*/exec*/tool-* repo through the repo's own `ci.sh`.
 #
 # Each engine is its own repository with an identical `ci.sh` (fmt -> clippy ->
 # test -> doc). This umbrella runs them in turn so a drift in one crate cannot
@@ -20,7 +20,7 @@ for arg in "$@"; do
     esac
 done
 if [ ${#repos[@]} -eq 0 ]; then
-    mapfile -t repos < <(cd "$root" && ls -d engine-* 2>/dev/null)
+    mapfile -t repos < <(cd "$root" && ls -d engine* exec* tool-* 2>/dev/null)
 fi
 
 failed=0

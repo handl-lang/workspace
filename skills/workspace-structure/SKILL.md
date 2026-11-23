@@ -14,16 +14,19 @@ patches). Repo families:
 - `host` — the main workspace: `crates/` holds `platform` (the plugin
   substrate: `Plugin`/`Operation`/`Behavior`/`RuleAcceptor`/`Contribution`),
   `plugin-ext-*` (CLI extension crates), `plugin-lib-*` (native
-  `Module`/`Function` impls), `plugin-sdkgen*`, `plugin-ffi`,
+  `Module`/`Function` impls), `plugin-codegen*`, `plugin-ffi`,
   `handl-runtime`, `handl-kit-*`, `handl-test-utils`, `host-tooling`.
   Root `Cargo.toml` lists members explicitly.
 - `kernel` — the calculus kernel: `handl-language` (`Term`/`Language` data
   schema), `handl-value` (`Value` shapes), `handl-calculus`, `handl-ops`,
   `handl-ext`, `ops`/`prim`/`prim-handl`/`defining-handl`.
-- `engine` — the `hnl-engine` umbrella. Each engine is **its own repo**:
-  `tool-lex*`, `tool-parse*`, `exec*` (tree-walk, bytecode,
-  cranelift), `tool-typecheck*` (handl, nbe), `tool-fmt`, `tool-lint`,
-  `tool-test`, `tool-transform*`, `tool-compile-*`. Engines are generic
+- `engine` / `engine-eqsat` — the genuine engines (`hnl-engine`
+  calculus substrate, e-graph search). The operation layer is one repo
+  per component: `tool-*` — on-demand toolchain instruments (`tool-lex*`,
+  `tool-parse*`, `tool-typecheck*`, `tool-fmt`, `tool-lint`, `tool-test`,
+  `tool-transform*`, `tool-watch`, `tool-codemod`, `tool-compile-*`);
+  `exec*` — execution backends (`exec`, `exec-tree-walk`, `exec-bytecode`,
+  `exec-cranelift`). Engines are generic
   and data-driven — dispatch on `lang.eval`/`lang.types`/`lang.grammar`, never
   a Rust `match` on node-kind strings.
 - `kit-prelude` — the canonical kit: a `Kit` wrapper over the assembled
@@ -36,7 +39,7 @@ patches). Repo families:
 - `kit-data-prelude` — `handl-kit-data-prelude` crate: kit manifests
   (`data/kits/*.yaml`), `lints.yaml`, `lsp.yaml`.
 - `lib-*` — pure-handl libraries (`src/*.hnl` + `pkg.hnl`); `kit-*` — kit
-  libraries; `tool-*` — tools; `ext-*` — CLI extension crates consumed by
+  libraries; `tool-*` — toolchain instrument crates; `exec-*` — eval backends; `ext-*` — CLI extension crates consumed by
   `host-cli`.
 - `host-cli` — the `hnl` binary (a dumb ext host; commands are dynamically
   loaded `ext-*` cdylibs). `host-lsp` — LSP crates. `docs` — the docs site.

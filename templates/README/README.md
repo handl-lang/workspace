@@ -24,9 +24,9 @@ specialized sub-template when a prefix grows variants (`tool.md` →
 
 | Template | Repos |
 |---|---|
-| `engine.md` | `engine`, `engine-*` — language-operation engines (Rust crates) |
+| `engine.md` | `engine`, `engine-eqsat`, `tool-*`, `exec-*` — the operation layer: genuine engines plus toolchain instruments and eval backends (Rust crates) |
 | `tool-compile.md` | `tool-compile-*` — compiler backends/emitters; renamed from `compile-*` |
-| `tool.md` | `tool-*` — CLI/dev tools |
+| `tool.md` | reserved — the `tool-*` prefix now means the instrument crates covered by `engine.md` |
 | `tool-codegen.md` | `tool-codegen-*` — SDK/binding generators |
 | `lib.md` | `lib-*` — Handl stdlib packages (**target: `.hnl` only**) |
 | `lib-rust.md` | transitional — `lib-*` pure-Rust crates pending the `.hnl` migration |

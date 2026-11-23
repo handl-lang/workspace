@@ -2,7 +2,7 @@
 
 {{ONE_LINE_DESCRIPTION}}
 
-{{FAMILY_BLURB}}  <!-- e.g. "`hnl-tool-lex` — the abstraction crate for the lex operation." — what makes an engine-* crate an engine-* crate -->
+{{FAMILY_BLURB}}  <!-- e.g. "`hnl-tool-lex` — the abstraction crate for the lex operation." — what makes an engine/tool/exec crate a member of the operation layer -->
 
 ## Development
 
