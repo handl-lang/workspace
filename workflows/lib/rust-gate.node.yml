@@ -62,7 +62,8 @@ params:
       else
         cargo fmt --all -- --check &&
         cargo clippy --workspace --all-targets -- -D warnings &&
-        cargo test --workspace ${params.extra};
+        cargo test --workspace ${params.extra} &&
+        cargo doc --workspace --no-deps;
       fi; };
     rc=$?;
     if [ -n "$RESULTS" ]; then

@@ -20,7 +20,7 @@
 # for standalone installs during the transition; under handl-gates
 # they are inert payload files.
 name: handl-gates
-version: "0.2.0"
+version: "0.2.1"
 # `peregrin-bundle` routes install/deploy/uninstall through
 # `tamias-driver-peregrin` (capabilities: types ["peregrin-bundle"]).
 type: peregrin-bundle
