@@ -1,16 +1,14 @@
 # lib/handl-gate.node.yml — canonical Handl gate fragment.
 #
-# Resolves the hnl toolchain (HNL binary + HANDL_EXT_DIR cdylibs)
-# and runs the repo's own gate: `bash ci.sh` when present, else the
-# hnl-gate stages (typecheck/lint/test) over the package sources.
-# `params.src_dir` picks the source root for the fallback path
+# Runs the hnl gate stages (typecheck/lint/test) over the package
+# sources — only *canonical* dialect `.hnl` files are gated:
+# arrow/contract-dialect sources (`~>`, `cap`/`op`/`handl`/`tag`,
+# leading `axiom`) are detected and skipped, `.test.hnl` files run
+# under `hnl test --jobs 1` with missing-host-native failures
+# tolerated. `params.src_dir` picks the source root
 # (handl-packages for the modern layout, src for the legacy one).
-#
-# The fallback path ports scripts/hnl-gate.sh: only *canonical*
-# dialect `.hnl` files are gated — arrow/contract-dialect sources
-# (`~>`, `cap`/`op`/`handl`/`tag`, leading `axiom`) are detected and
-# skipped, `.test.hnl` files run under `hnl test --jobs 1` with
-# missing-host-native failures tolerated.
+# Repos with extra legs compose their own gate.yaml — ci.sh is
+# retired; this fragment is the *standard lane*.
 #
 # Parent owns the event contract — declare `on:`/`emits:` and
 # `params.emit` at the include site; override `params.repo`,
@@ -52,10 +50,7 @@ params:
     cd "$REPO" &&
     export HNL="${params.hnl}" HANDL_EXT_DIR="${params.hnl_ext_dir}"
       PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" &&
-    { if [ -f ci.sh ]; then
-        echo "ci.sh present — running the repo's own gate"
-        bash ci.sh
-      else
+    {
         SRC="${params.src_dir}"
         [ -z "$SRC" ] && { [ -d handl-packages ] && SRC=handl-packages || SRC=src; }
         # Canonical-dialect detector — ported verbatim from
@@ -129,7 +124,7 @@ params:
             [ "$failed_files" -eq 0 ] || { echo "hnl gate FAILED: $failed_files test file(s) with real failures." >&2; exit 1; }
           fi
         fi
-      fi; }
+    }
     rc=$?
     if [ -n "$RESULTS" ]; then
       esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')

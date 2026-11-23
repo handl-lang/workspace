@@ -11,9 +11,9 @@ once; each campaign supplies the event contract (`on:`/`emits:`/
 | File | Family | Recipe |
 |---|---|---|
 | `ensure-siblings.node.yml` | any | worktree sibling-layout restoration (`../<repo>` self-link + sibling symlinks) + shared `CARGO_TARGET_DIR` env file — the ci.sh `ensure_siblings` port |
-| `rust-gate.node.yml` | `rust` | repo's `ci.sh` if present, else `cargo fmt --check` → `clippy -D warnings` → `test --workspace` |
-| `python-gate.node.yml` | `python` | repo's `ci.sh` if present, else `uv sync` → `ruff check`/`format --check` (when ruff is installed) → `pytest` (if tests exist) |
-| `handl-gate.node.yml` | `handl` | repo's `ci.sh` if present, else `hnl typecheck/lint/test` over canonical-dialect `handl-packages`/`src` sources (arrow-dialect `.hnl` skipped, per `scripts/hnl-gate.sh`) |
+| `rust-gate.node.yml` | `rust` | `cargo fmt --check` → `clippy -D warnings` → `test --workspace` → `doc --no-deps` |
+| `python-gate.node.yml` | `python` | `uv sync` → `ruff check`/`format --check` (when ruff is installed) → `pytest` (if tests exist) |
+| `handl-gate.node.yml` | `handl` | `hnl typecheck/lint/test` over canonical-dialect `handl-packages`/`src` sources (arrow-dialect `.hnl` skipped, per `scripts/hnl-gate.sh`) |
 
 ## Contract
 
@@ -74,12 +74,11 @@ committed per-push gate include fragments by bundle ref:
 
 ## Boundary vs ci.sh
 
-`ci.sh` is being **retired** as the per-push contract — repos carry a
-thin committed `workflows/gate.yaml` that composes these fragments
-instead, and bupha invokes `peregrin campaign run` on it inside the
-pushed worktree (same sha-commitment guarantee ci.sh had). These
-fragments are now the gate *implementation*, not just the
-campaign-side baseline: the recipe lives here once, per-repo
-gate.yaml files only wire events/params. Repos with bespoke gates
-extend via `params.extra`/`pytest_args`/`src_dir` or their own nodes;
-both paths stay honest about which gate they ran.
+`ci.sh` is **retired** — repos carry a committed `workflows/gate.yaml`
+that composes these fragments, and bupha invokes
+`peregrin campaign run` on it inside the pushed worktree (same
+sha-commitment guarantee ci.sh had). These fragments ARE the gate
+*implementation*: the recipe lives here once, per-repo gate.yaml
+files only wire events/params. Repos with bespoke gates extend via
+`params.extra`/`pytest_args`/`src_dir` or their own nodes — there is
+no ci.sh override; a repo that needs a different gate composes it.

@@ -1,11 +1,9 @@
 # lib/rust-gate.node.yml — canonical Rust gate fragment.
 #
-# Runs the repo's own `bash ci.sh` when present (the bespoke gate —
-# worktree sibling layout is ensure-siblings.node.yml's job); else
-# the baseline cargo floor for ci.sh-less repos: fmt --check →
-# clippy -D warnings → test. Repos with heavier or different gates
-# keep their ci.sh — this fragment is the *standard lane* campaigns
-# compose for plain Rust checkouts.
+# The standard lane for plain Rust checkouts: fmt --check →
+# clippy -D warnings → test --workspace → doc --no-deps. Repos with
+# heavier or different gates compose their own gate.yaml legs
+# (see gates/ and the dual-lane examples) — ci.sh is retired.
 #
 # Runs in the dev checkout (campaigns are host-side; worktree
 # sibling plumbing is ci.sh/bupha's job, not ours).
@@ -56,15 +54,10 @@ params:
     REPO="$(pwd)" &&
     { EF="${params.env_file}"; [ "$EF" = "auto" ] && EF="$(dirname "$REPO")/.gate-env/$(basename "$REPO").env"; [ -z "$EF" ] || [ ! -f "$EF" ] || . "$EF"; } &&
     export PATH="$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" CARGO_INCREMENTAL=0 &&
-    { if [ -f ci.sh ]; then
-        echo "ci.sh present — running the repo's own gate";
-        bash ci.sh;
-      else
-        cargo fmt --all -- --check &&
-        cargo clippy --workspace --all-targets -- -D warnings &&
-        cargo test --workspace ${params.extra} &&
-        cargo doc --workspace --no-deps;
-      fi; };
+    cargo fmt --all -- --check &&
+    cargo clippy --workspace --all-targets -- -D warnings &&
+    cargo test --workspace ${params.extra} &&
+    cargo doc --workspace --no-deps;
     rc=$?;
     if [ -n "$RESULTS" ]; then
       esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g');

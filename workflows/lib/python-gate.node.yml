@@ -1,12 +1,10 @@
 # lib/python-gate.node.yml — canonical Python gate fragment.
 #
-# Runs the repo's own `bash ci.sh` when present (the bespoke gate —
-# worktree sibling layout is ensure-siblings.node.yml's job); else
-# the baseline uv lane for ci.sh-less repos: `uv sync --group dev`
-# (falls back to bare sync) → ruff check → ruff format --check →
-# pytest when a tests dir/testpaths exist. Repos with different
-# gates (coverage floors, import-linter, ty, vulture) keep their
-# ci.sh — this fragment is the *standard lane*.
+# The baseline uv lane: `uv sync --group dev` (falls back to bare
+# sync) → ruff check → ruff format --check → pytest when a
+# tests dir/testpaths exist. Repos with heavier gates (coverage
+# floors, import-linter, ty, vulture) compose their own gate.yaml
+# legs — ci.sh is retired; this fragment is the *standard lane*.
 #
 # Parent owns the event contract — declare `on:`/`emits:` and
 # `params.emit` at the include site; override `params.repo`,
@@ -46,15 +44,10 @@ params:
     REPO="$(pwd)" &&
     { EF="${params.env_file}"; [ "$EF" = "auto" ] && EF="$(dirname "$REPO")/.gate-env/$(basename "$REPO").env"; [ -z "$EF" ] || [ ! -f "$EF" ] || . "$EF"; } &&
     export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" &&
-    { if [ -f ci.sh ]; then
-        echo "ci.sh present — running the repo's own gate";
-        bash ci.sh;
-      else
-        { uv sync --group dev 2>/dev/null || uv sync; } &&
-        { RUFF=""; [ -x .venv/bin/ruff ] && RUFF=".venv/bin/ruff"; [ -z "$RUFF" ] && command -v ruff >/dev/null 2>&1 && RUFF=ruff;
-          if [ -n "$RUFF" ]; then "$RUFF" check . && "$RUFF" format --check .; else echo "ruff not installed — lint legs skipped"; fi; } &&
-        { if [ -d tests ] || [ -d test ] || grep -q 'testpaths' pyproject.toml 2>/dev/null; then .venv/bin/python -m pytest ${params.pytest_args}; else echo "no tests dir — pytest leg skipped"; fi; };
-      fi; };
+    { uv sync --group dev 2>/dev/null || uv sync; } &&
+    { RUFF=""; [ -x .venv/bin/ruff ] && RUFF=".venv/bin/ruff"; [ -z "$RUFF" ] && command -v ruff >/dev/null 2>&1 && RUFF=ruff;
+      if [ -n "$RUFF" ]; then "$RUFF" check . && "$RUFF" format --check .; else echo "ruff not installed — lint legs skipped"; fi; } &&
+    { if [ -d tests ] || [ -d test ] || grep -q 'testpaths' pyproject.toml 2>/dev/null; then .venv/bin/python -m pytest ${params.pytest_args}; else echo "no tests dir — pytest leg skipped"; fi; };
     rc=$?;
     if [ -n "$RESULTS" ]; then
       esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g');
