@@ -54,7 +54,18 @@ params:
     REPO="$(pwd)" &&
     { EF="${params.env_file}"; [ "$EF" = "auto" ] && EF="$(dirname "$REPO")/.gate-env/$(basename "$REPO").env"; [ -z "$EF" ] || [ ! -f "$EF" ] || . "$EF"; } &&
     export PATH="$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin" CARGO_INCREMENTAL=0 &&
-    cargo fmt --all -- --check &&
+    # fmt is scoped to workspace members: `cargo fmt --all` also
+    # formats path dependencies (siblings via ../ or path =), so a
+    # drifting sibling repo would fail THIS repo's gate — and plain
+    # `cargo fmt` would rewrite the sibling's real files through
+    # worktree symlinks. Member list comes from cargo metadata.
+    MEMBERS=$(cargo metadata --no-deps --format-version 1 2>/dev/null | jq -r '.workspace_members as $m | .packages[] | select(.id as $id | $m | index($id)) | .name' 2>/dev/null) &&
+    if [ -n "$MEMBERS" ]; then
+      FMT_PKGS=""; for p in $MEMBERS; do FMT_PKGS="$FMT_PKGS -p $p"; done;
+      cargo fmt $FMT_PKGS -- --check;
+    else
+      cargo fmt --all -- --check;
+    fi &&
     cargo clippy --workspace --all-targets -- -D warnings &&
     cargo test --workspace ${params.extra} &&
     cargo doc --workspace --no-deps;
