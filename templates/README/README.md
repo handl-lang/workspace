@@ -10,7 +10,7 @@ directory is the single source of truth.
 ```text
 {family}.md    README skeleton per repo family
 xtask/         vendored `cargo xtask` crate — copy into each Rust repo
-               (alias: `xtask = "run --manifest-path xtask/Cargo.toml --"`
+               (invoke via `cargo run --manifest-path xtask/Cargo.toml --`)
                in `.cargo/config.toml`)
 gate.py        vendored python gate — copy to `scripts/gate.py` in each
                uv/python repo (`uv run scripts/gate.py`)
@@ -74,13 +74,14 @@ docs-site slug (omit section if no site) · `{{PACKAGE}}` / `{{SRC_DIR}}` /
   sections; move/reorder to match the family skeleton.
 - Omit optional sections (Documentation, Gate variant, Packages) when they
   don't apply rather than leaving placeholders.
-- **Rust repos gate through `cargo xtask`** — vendor `xtask/` + the
-  `.cargo/config.toml` alias; `ci.sh` calls `cargo xtask gate`.
+- **Rust repos gate through `xtask/`** — vendor the `xtask/` crate; `ci.sh`
+  calls `cargo run --manifest-path xtask/Cargo.toml -- gate` (the
+  `cargo xtask` alias lives in a gitignored `.cargo/config.toml`, dev-only).
 - **Python repos gate through `uv run scripts/gate.py`** — vendor `gate.py`
   as `scripts/gate.py`; `ci.sh` calls it. `--coverage` enables the coverage
   step for repos with a `fail_under` floor.
 - **`kit-*`/`lib-*` target `.hnl`-only** — no Rust, no Python; interop via
-  `tool-sdkgen-*` bindings. Transitional templates stay until each repo
+  `engine-sdkgen-*` bindings (the `tool-sdkgen-*` repos are being renamed). Transitional templates stay until each repo
   migrates.
 
 ## Repo metadata (applies to every repo, not just READMEs)
