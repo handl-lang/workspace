@@ -12,7 +12,10 @@ after rename, and git URLs in manifests can stay on old names until then.
 | `compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | `tool-compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | 8 |
 | `slidev-theme` | `slidev-theme-handl` | 1 |
 | `mlopt` | `research-mlopt` | 1 |
-| `host-tensor` | TBD (`lib-*`/`engine-*` — decision pending) | 1 |
+| `host-tensor` | `exec-tensor` (done — engine family via `exec-*`) | 1 |
+| `kit-torch` | `mlopt-torch` (done) | 1 |
+| `kit-discovery` | `mlopt-discovery` (done) | 1 |
+| `kit-carriers` | `mlopt-carriers` (done) | 1 |
 
 Crate/package names inside the repos do NOT change (e.g. `hnl-sdkgen-c`,
 `handl-compile-*`) — only repo dir names, git remotes, and references.
@@ -53,7 +56,7 @@ sibling checkout must be updated in the same wave:
 1. `sdkgen-*` → `tool-sdkgen-*` (5) — smallest, validates the procedure.
 2. `compile-*` → `tool-compile-*` (8).
 3. `slidev-theme` → `slidev-theme-handl`, `mlopt` → `research-mlopt` (1 each).
-4. `host-tensor` — after family decision.
+4. `host-tensor` — done: renamed `exec-tensor` (engine family).
 
 ## Deferred to T-111 (needs user go)
 
