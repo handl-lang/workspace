@@ -25,3 +25,4 @@ files = [
 
 [path."pyproject.toml"]
 contains = "requires-python"        # every uv repo pins its python
+regex    = '(?m)^name = "'         # [project] name present

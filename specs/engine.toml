@@ -19,5 +19,10 @@ cover_dirs = [
   "laws",   # engine-eqsat law files
 ]
 
-[path."Cargo.toml"]
-regex.forbid = ['(?m)^\[patch\.']   # no [patch] crate overrides
+# [patch.*] sources must stay org-local — enforced semantically by
+# the `cargo` provider (regex can't express "github.com/handl-lang
+# only"); the sanctioned sibling-dev-link convention
+# (`[patch."https://github.com/handl-lang/…"]` + `path = "../…"`)
+# is allowed, external sources are not.
+[providers.cargo]
+patches = "org-only"

@@ -1,0 +1,28 @@
+# handl/python/mlopt-discovery — repo-specific override for
+# mlopt-discovery's `vocab/` tree (YAML language data: ast/grammar/
+# ops/laws/…). `vocab` is this repo's special thing, not a python
+# convention — kept out of python.toml's cover_dirs on purpose.
+#
+# Standalone (extends base.toml, NOT python.toml): `extends`
+# deep-merges arrays, so inheriting python.toml's `match` would
+# make this spec match every python repo. The python fields are
+# duplicated here instead — keep them in sync.
+
+extends = "base.toml"
+
+family   = "handl/python/mlopt-discovery"
+match    = ["mlopt-discovery"]
+severity = "fail"
+
+files = [
+  "pyproject.toml",
+  "uv.lock",
+]
+
+cover_dirs = [
+  "vocab",
+]
+
+[path."pyproject.toml"]
+contains = "requires-python"
+regex    = '(?m)^name = "'
