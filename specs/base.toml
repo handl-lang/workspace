@@ -34,6 +34,16 @@ cover = [
   "*.sh",                      # ci.sh / gate.sh / hnl-gate.sh — sanctioned
                               # gate-entry names (audit: ci.sh is the
                               # documented gate entry alongside gate.yaml)
+  # universal dotfile/config artifacts — `*` crosses '/', so these
+  # cover nested matches too (api/.env.example, app/.gitignore, …)
+  "*.env.example", ".env.example", "VERSION", "*.gitkeep",
+  "*.gitignore", "*.mjs", "*.vue", "*.lockb", "*.code-workspace",
+  "*.nuxtrc", "*.python-version", "*.tmpl", "*.template",
+  "*.lua", "*.pdf", "*.cast", "Dockerfile",
+  # polyglot bench/task sources — the bench/tasks repos compare
+  # languages; these extensions are content, not strays
+  "*.go", "*.java", "*.rb", "*.jl", "*.erl", "*.cs", "*.csproj",
+  "*.c", "*.h",
   # tracked dotfiles every repo carries — enumerated, never `.*`
   # (a blanket dot-glob would whitelist committed .env secrets)
   ".gitignore", ".gitattributes", ".gitmodules", ".editorconfig",
@@ -41,13 +51,15 @@ cover = [
 ]
 
 cover_dirs = [
-  ".agents", ".cargo", ".claude", ".config", ".devin", ".github",
-  ".handl", ".idea", ".kuda", ".vscode", ".vitepress",
+  ".agents", ".cargo", ".claude", ".config", ".cursor", ".devin",
+  ".github", ".githooks", ".hooks", ".handl", ".idea", ".kuda",
+  ".vscode", ".vitepress",
   "adrs", "bench", "benches", "ci", "components", "contact", "crates",
   "data", "dist", "docs", "ecosystem", "engines", "examples",
-  "handl-packages", "members", "modules", "packages", "paper", "paradigm",
-  "project", "public", "research", "scripts", "specs", "src", "story",
-  "strategy", "tests", "vendor", "workflows", "xtask",
+  "fuzz", "handl-packages", "libraries", "members", "modules",
+  "packages", "paper", "paradigm", "project", "public", "research",
+  "rules", "scripts", "specs", "src", "story", "strategy", "tasks",
+  "templates", "tests", "vendor", "workflows", "xtask",
 ]
 
 # --- providers ---
