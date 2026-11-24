@@ -18,3 +18,6 @@ files = [
 cover_dirs = [
   "laws",   # engine-eqsat law files
 ]
+
+[path."Cargo.toml"]
+regex.forbid = ['(?m)^\[patch\.']   # no [patch] crate overrides

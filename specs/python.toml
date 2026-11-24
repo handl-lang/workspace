@@ -20,3 +20,6 @@ files = [
   "pyproject.toml",
   "uv.lock",
 ]
+
+[path."pyproject.toml"]
+contains = "requires-python"        # every uv repo pins its python

@@ -49,3 +49,7 @@ cover_dirs = [
   "project", "public", "research", "scripts", "specs", "src", "story",
   "strategy", "tests", "vendor", "workflows", "xtask",
 ]
+
+# --- predicates (mimus-spec phase 2) ---
+[path."LICENSE"]
+contains = "MIT"        # org license is MIT; Apache-2.0 mentions drift
