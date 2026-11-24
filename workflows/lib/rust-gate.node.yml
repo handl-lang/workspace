@@ -44,7 +44,10 @@ params:
   extra: ""
   env_file: "auto"
   timeout: 3600
-  cmd: >-
+  # Literal block (|), NOT folded (>): the shell comments below must
+  # stay on their own lines — under >- folding they would join the
+  # script into one line and `#` would comment out the rest of it.
+  cmd: |
     set -uo pipefail;
     F="${params.family}"; [ -z "$F" ] || [ "$F" = "rust" ] || { echo "family=$F — skipped"; exit 0; };
     REPO="${params.repo}";
