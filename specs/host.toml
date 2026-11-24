@@ -1,0 +1,16 @@
+# handl/host — host, host-* distribution repos (binaries, servers).
+# host-tensor is pending reclassification — warn until decided.
+
+extends = "base.toml"
+
+family   = "handl/host"
+match    = ["host", "host-*"]
+severity = "warn"
+
+files = [
+  "Cargo.toml",
+]
+
+cover_dirs = [
+  "dagger", "modules", "skills",   # host pipeline + agent-skill trees
+]

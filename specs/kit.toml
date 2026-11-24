@@ -1,0 +1,11 @@
+# handl/kit — kit-* declarations/manifests-as-data.
+#
+# kit-* is split rust-workspace vs python today and the split is
+# by CONTENT not name — `match` can't see inside the repo, so this
+# stays warn until a stack-detection predicate exists (phase 2).
+
+extends = "base.toml"
+
+family   = "handl/kit"
+match    = ["kit-*"]
+severity = "warn"

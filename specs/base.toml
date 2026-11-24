@@ -1,0 +1,47 @@
+# handl/base — the floor every handl-lang/* repo must meet.
+#
+# severity=warn on purpose: this is the ratchet floor. Missing
+# AGENTS/README/LICENSE/bupha surfaces as warnings fleet-wide
+# until each family flips to fail.
+#
+# `files` exact entries are REQUIRED (missing → violation).
+# `cover`/`cover_dirs` whitelist tracked files for the unlisted
+# check — coverage only, never required. `unlisted` runs against
+# the UNION of all matched specs, so family specs contribute their
+# own trees; base only needs the shared floor plus plausible
+# catch-alls.
+
+family   = "handl/base"
+match    = []                # every repo
+severity = "warn"
+
+files = [
+  "README.md",
+  "LICENSE",
+  "AGENTS.md",
+  "bupha.toml",
+  "workflows/gate.yaml",   # the vendored handl-gates bundle — near-universal
+]
+
+cover = [
+  # root-level artifacts — `*` crosses '/', so these also cover
+  # nested matches; dirs[] carries the tree whitelist.
+  "*.toml", "*.json", "*.jsonl", "*.yaml", "*.yml", "*.lock", "*.md",
+  "*.txt", "*.css", "*.ts", "*.tsx", "*.js", "*.py",
+  "*.png", "*.svg", "*.onnx", "*.safetensors", "*.hnl",
+  "Makefile", "NOTICE", "LICENSE*", "CNAME",
+  # tracked dotfiles every repo carries — enumerated, never `.*`
+  # (a blanket dot-glob would whitelist committed .env secrets)
+  ".gitignore", ".gitattributes", ".gitmodules", ".editorconfig",
+  ".nojekyll", ".mailmap", ".vscodeignore",
+]
+
+cover_dirs = [
+  ".agents", ".cargo", ".claude", ".config", ".devin", ".github",
+  ".handl", ".idea", ".kuda", ".vscode", ".vitepress",
+  "adrs", "bench", "ci", "components", "contact", "crates",
+  "data", "dist", "docs", "ecosystem", "engines", "examples",
+  "handl-packages", "members", "packages", "paper", "paradigm",
+  "project", "public", "research", "scripts", "src", "story",
+  "strategy", "tests", "vendor", "workflows", "xtask",
+]

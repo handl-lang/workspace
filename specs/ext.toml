@@ -1,0 +1,14 @@
+# handl/ext — extension-* editor extensions (vscode, neovim).
+# warn: extension-vscode still carries CHANGELOG.md + tracked
+# package-lock.json — file-set flags them as unlisted until the
+# repo is cleaned or the spec learns exceptions.
+
+extends = "base.toml"
+
+family   = "handl/ext"
+match    = ["extension-*"]
+severity = "warn"
+
+files = [
+  "package.json",
+]

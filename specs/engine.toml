@@ -1,0 +1,17 @@
+# handl/engine — engine, engine-*, engine-compile-*, engine-sdkgen-*
+# Rust crates gated through the vendored xtask + handl-gates bundle.
+
+extends = "base.toml"
+
+family   = "handl/engine"
+match    = ["engine", "engine-*"]
+severity = "fail"
+
+files = [
+  "Cargo.toml",
+  "xtask/Cargo.toml",
+]
+
+cover_dirs = [
+  "laws",   # engine-eqsat law files
+]

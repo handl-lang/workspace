@@ -1,0 +1,15 @@
+# handl/lib — lib-* Handl stdlib packages.
+#
+# TARGET is .hnl-only; rust/python content is transitional.
+# severity=warn until the migration lands — missing pkg.hnl and
+# stray Cargo.toml/pyproject surface as warnings now, fail later.
+
+extends = "base.toml"
+
+family   = "handl/lib"
+match    = ["lib-*"]
+severity = "warn"
+
+files = [
+  "pkg.hnl",
+]

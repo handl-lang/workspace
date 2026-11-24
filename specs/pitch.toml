@@ -1,0 +1,12 @@
+# handl/pitch — pitch-* Slidev decks.
+
+extends = "base.toml"
+
+family   = "handl/pitch"
+match    = ["pitch-*"]
+severity = "fail"
+
+files = [
+  "package.json",
+  "slides.md",
+]

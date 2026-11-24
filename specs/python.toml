@@ -1,0 +1,14 @@
+# handl/python — uv/python repos (eqsat, gamekit, discoverykit,
+# mlopt-product, research-*, kernelopt, …).
+
+extends = "base.toml"
+
+family   = "handl/python"
+match    = ["eqsat", "gamekit", "discoverykit", "mlopt-product",
+            "research-*", "kernelopt"]
+severity = "fail"
+
+files = [
+  "pyproject.toml",
+  "uv.lock",
+]
