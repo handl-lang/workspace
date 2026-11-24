@@ -1,6 +1,6 @@
 # handl/python — uv/python repos (eqsat, gamekit, discoverykit,
 # mlopt-*, research-*, kernelopt) PLUS the transitional kit-python
-# cohort (kit-{onnx,cuda,host-tensor} — all verified
+# cohort (kit-{cuda,host-tensor} — all verified
 # pyproject+uv.lock, no Cargo.toml). kit-pkg is the only Rust kit
 # and stays kit-only; the other kit-* python repos were renamed
 # (kit-torch→mlopt-torch, kit-discovery→mlopt-discovery,
@@ -16,7 +16,7 @@ extends = "base.toml"
 family   = "handl/python"
 match    = ["eqsat", "gamekit", "discoverykit", "mlopt-*",
             "research-*", "kernelopt",
-            "kit-onnx", "kit-cuda", "kit-host-tensor"]
+            "kit-cuda", "kit-host-tensor"]
 severity = "fail"
 
 files = [
