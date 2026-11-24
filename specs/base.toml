@@ -50,6 +50,13 @@ cover_dirs = [
   "strategy", "tests", "vendor", "workflows", "xtask",
 ]
 
+# --- providers ---
+# `repo` provider: bupha.toml [[repos]] name must end in /<dirname>
+# — catches name=/dir= drift after renames. Warn floor.
+[providers.repo]
+bupha-name = true
+severity   = "warn"
+
 # --- predicates (mimus-spec phase 2) ---
 [path."LICENSE"]
 contains = "MIT"        # org license is MIT; Apache-2.0 mentions drift
