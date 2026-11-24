@@ -1,5 +1,6 @@
 # handl/host — host, host-* distribution repos (binaries, servers).
-# host-tensor is pending reclassification — warn until decided.
+# host-tensor was renamed exec-tensor and reclassified into
+# handl/engine (matches `exec-*`) — no host-* member pending.
 
 extends = "base.toml"
 
