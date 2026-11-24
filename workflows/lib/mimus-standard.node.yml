@@ -1,0 +1,84 @@
+# lib/mimus-standard.node.yml — advisory `mimus standard` repo-
+# conformance leg.
+#
+# Runs `mimus standard --repo <repo> --spec <pack>` against the
+# checkout: declarative file-set conformance from the handl-lang
+# specs/ pack (workspace/specs — base floor + family deltas,
+# `extends`-composed, match-globs pick the specs that apply).
+#
+# ADVISORY BY CONTRACT: the node always exits 0. A missing mimus
+# binary, a missing/unreachable spec pack, or spec violations are
+# warnings in the run log — they never gate. Until the spec pack is
+# distributed (vendored specs/ dir or a tamias pack), this leg
+# mostly skip-warns on CI; on dev machines it resolves the sibling
+# workspace/specs checkout.
+#
+# Spec resolution order (first hit wins):
+#   1. params.spec        — config.gate.standard_spec /
+#                           GATE_STANDARD_SPEC env (file or dir;
+#                           explicit override)
+#   2. <repo>/specs       — spec pack vendored into the repo itself
+#                           (the future CI-safe distribution path)
+#   3. ../workspace/specs — sibling checkout, dev machines only
+#                           (handl-lang/<repo> next to
+#                           handl-lang/workspace)
+#
+# Binary resolution: params.mimus (config.gate.mimus_bin /
+# GATE_MIMUS_BIN) → `command -v mimus` → skip-warn.
+#
+# Parent owns the event contract — declare `on:`/`emits:` and
+# `params.emit` at the include site. Suggested wiring: chain between
+# the family fragment and gate.report so the check always completes
+# before the verdict is read:
+#
+#   - include: ../lib/mimus-standard.node.yml
+#     id: gate.standard
+#     on: [gate.done, gate.failed]
+#     emits: [standard.done, standard.failed]
+#     params:
+#       repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+#       spec: '${config.gate.standard_spec:-${env("GATE_STANDARD_SPEC","")}}'
+#       mimus: '${config.gate.mimus_bin:-${env("GATE_MIMUS_BIN","")}}'
+#       emit:
+#         "0": standard.done
+#         default: standard.failed
+#
+# then point gate.report's `on:` at [standard.done, standard.failed].
+#
+id: gate.standard
+driver: shell
+params:
+  repo: ""
+  spec: ""
+  mimus: ""
+  timeout: 300
+  # Literal block (|), NOT folded (>): keep the shell comments and
+  # loops on their own lines.
+  cmd: |
+    set -uo pipefail;
+    REPO="${params.repo}";
+    cd "$REPO" && REPO="$(pwd)" || exit 0;
+    MIMUS="${params.mimus}";
+    [ -n "$MIMUS" ] || MIMUS="$(command -v mimus 2>/dev/null || true)";
+    if [ -z "$MIMUS" ]; then
+      echo "mimus standard: mimus binary not found — skipping (advisory)";
+      exit 0;
+    fi;
+    SPEC="";
+    for cand in "${params.spec}" "$REPO/specs" "$(dirname "$REPO")/workspace/specs"; do
+      if [ -n "$cand" ] && [ -e "$cand" ]; then SPEC="$cand"; break; fi;
+    done;
+    if [ -z "$SPEC" ]; then
+      echo "mimus standard: no spec pack found (tried: override, $REPO/specs, ../workspace/specs) — skipping (advisory)";
+      exit 0;
+    fi;
+    echo "mimus standard: repo=$REPO spec=$SPEC";
+    "$MIMUS" standard --repo "$REPO" --spec "$SPEC";
+    rc=$?;
+    if [ "$rc" -ne 0 ]; then
+      echo "mimus standard: advisory check rc=$rc — violations are warnings, not gate failures";
+    fi;
+    exit 0
+  emit:
+    "0": standard.done
+    default: standard.failed

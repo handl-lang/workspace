@@ -9,12 +9,14 @@ repo checkout end-to-end:
 | `python.yaml` | `python` | `../lib/python-gate.node.yml` | `gate.pass` / `gate.fail` |
 | `handl.yaml` | `handl` | `../lib/handl-gate.node.yml` | `gate.pass` / `gate.fail` |
 
-Each is four nodes: `gate.init` (validate the repo target —
+Each is five nodes: `gate.init` (validate the repo target —
 `GATE_REPO` env or `config.gate.repo`, truncate the results JSONL)
 → `gate.ensure`
 (`../lib/ensure-siblings.node.yml` — worktree sibling layout +
 shared `CARGO_TARGET_DIR` env file; no-op in a main checkout) → the
-family fragment → `gate.report` (reads the `results.jsonl` record,
+family fragment → `gate.standard`
+(`../lib/mimus-standard.node.yml` — advisory `mimus standard`
+repo-conformance; always exits 0, never gates) → `gate.report` (reads the `results.jsonl` record,
 emits `gate.pass` on `rc == 0`, `gate.fail` otherwise). A top-level
 `result:` block maps the verdict events to run conclusions
 (`gate.pass`→`success`; `gate.fail`/`gate.failed`/`gate.init.failed`/
@@ -59,6 +61,8 @@ literal values under `config.gate.*` — **config wins over env()**.
 | `GATE_SRC_DIR` | handl only — fallback source root | `""` (auto: `handl-packages` → `src`) |
 | `GATE_TARGET_DIR` | all — `CARGO_TARGET_DIR` for the env file | `"auto"` (`$WORKSPACE_ROOT/.ci-target/<repo>`); `""` skips |
 | `GATE_ENV_FILE` | all — where the env file lands / gate sources it | `"auto"` (`$(dirname <repo>)/.gate-env/<checkout>.env`); `""` skips |
+| `GATE_STANDARD_SPEC` | all — `mimus standard` spec file/dir override | `""` (tries `<repo>/specs`, then `../workspace/specs`) |
+| `GATE_MIMUS_BIN` | all — `mimus` binary override | `""` (`command -v mimus`) |
 
 ## Per-push use (the ci.sh replacement)
 

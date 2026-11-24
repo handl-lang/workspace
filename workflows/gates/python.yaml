@@ -58,6 +58,8 @@ capabilities:
     - GATE_PYTEST_ARGS
     - GATE_TARGET_DIR
     - GATE_ENV_FILE
+    - GATE_STANDARD_SPEC
+    - GATE_MIMUS_BIN
 
 nodes:
   # --- init: validate inputs, fresh results file --------------------
@@ -107,10 +109,23 @@ nodes:
         "0": gate.done
         default: gate.failed
 
+  # --- standard: advisory mimus repo-conformance (never gates) -----
+  - include: ../lib/mimus-standard.node.yml
+    id: gate.standard
+    on: [gate.done, gate.failed]
+    emits: [standard.done, standard.failed]
+    params:
+      repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+      spec: '${config.gate.standard_spec:-${env("GATE_STANDARD_SPEC","")}}'
+      mimus: '${config.gate.mimus_bin:-${env("GATE_MIMUS_BIN","")}}'
+      emit:
+        "0": standard.done
+        default: standard.failed
+
   # --- report: terminal verdict from the results record -------------
   - id: gate.report
     driver: shell
-    on: [gate.done, gate.failed]
+    on: [standard.done, standard.failed]
     emits: [gate.pass, gate.fail]
     params:
       cmd: >-
