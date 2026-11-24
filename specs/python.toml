@@ -1,13 +1,14 @@
 # handl/python — uv/python repos (eqsat, gamekit, discoverykit,
 # mlopt-*, research-*, kernelopt) PLUS the transitional kit-python
-# cohort (kit-{onnx,cuda,host-tensor,kernel-ir} — all verified
+# cohort (kit-{onnx,cuda,host-tensor} — all verified
 # pyproject+uv.lock, no Cargo.toml). kit-pkg is the only Rust kit
 # and stays kit-only; the other kit-* python repos were renamed
 # (kit-torch→mlopt-torch, kit-discovery→mlopt-discovery,
 # kit-carriers→mlopt-carriers, host-tensor→exec-tensor — the last
-# now lands in handl/engine via `exec-*`). The remaining
-# kit-python names are listed explicitly because `kit-*` would
-# wrongly pull in kit-pkg; when the cohort relocates out of
+# now lands in handl/engine via `exec-*`). kit-kernel-ir was deleted
+# (empty meta-package over lib-kernel-ir + lib-triton-qgemv). The
+# remaining kit-python names are listed explicitly because `kit-*`
+# would wrongly pull in kit-pkg; when the cohort relocates out of
 # `kit-*` (templates/README pending decision) update this list.
 
 extends = "base.toml"
@@ -15,7 +16,7 @@ extends = "base.toml"
 family   = "handl/python"
 match    = ["eqsat", "gamekit", "discoverykit", "mlopt-*",
             "research-*", "kernelopt",
-            "kit-onnx", "kit-cuda", "kit-host-tensor", "kit-kernel-ir"]
+            "kit-onnx", "kit-cuda", "kit-host-tensor"]
 severity = "fail"
 
 files = [
