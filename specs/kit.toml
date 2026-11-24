@@ -9,3 +9,7 @@ extends = "base.toml"
 family   = "handl/kit"
 match    = ["kit-*"]
 severity = "warn"
+
+cover = [
+  "vocab",   # kit-discovery's root vocab manifest (extensionless data file)
+]

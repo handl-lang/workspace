@@ -1,10 +1,13 @@
-# handl/engine — engine, engine-*, engine-compile-*, engine-sdkgen-*
-# Rust crates gated through the vendored xtask + handl-gates bundle.
+# handl/engine — the operation layer per templates/README: engine,
+# engine-*, exec*, tool-* (incl. tool-compile-*/tool-codegen-*
+# sub-families), ext-* (Handl language extensions — Rust cdylib +
+# xtask). All 35 member repos uniformly carry Cargo.toml +
+# xtask/Cargo.toml + workflows/gate.yaml (verified 2026-11-24).
 
 extends = "base.toml"
 
 family   = "handl/engine"
-match    = ["engine", "engine-*"]
+match    = ["engine", "engine-*", "exec", "exec-*", "tool-*", "ext-*"]
 severity = "fail"
 
 files = [

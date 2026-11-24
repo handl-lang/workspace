@@ -30,6 +30,10 @@ cover = [
   "*.txt", "*.css", "*.ts", "*.tsx", "*.js", "*.py",
   "*.png", "*.svg", "*.onnx", "*.safetensors", "*.hnl",
   "Makefile", "NOTICE", "LICENSE*", "CNAME",
+  "build.rs",                  # rust build script — legit root file
+  "*.sh",                      # ci.sh / gate.sh / hnl-gate.sh — sanctioned
+                              # gate-entry names (audit: ci.sh is the
+                              # documented gate entry alongside gate.yaml)
   # tracked dotfiles every repo carries — enumerated, never `.*`
   # (a blanket dot-glob would whitelist committed .env secrets)
   ".gitignore", ".gitattributes", ".gitmodules", ".editorconfig",
@@ -39,9 +43,9 @@ cover = [
 cover_dirs = [
   ".agents", ".cargo", ".claude", ".config", ".devin", ".github",
   ".handl", ".idea", ".kuda", ".vscode", ".vitepress",
-  "adrs", "bench", "ci", "components", "contact", "crates",
+  "adrs", "bench", "benches", "ci", "components", "contact", "crates",
   "data", "dist", "docs", "ecosystem", "engines", "examples",
-  "handl-packages", "members", "packages", "paper", "paradigm",
-  "project", "public", "research", "scripts", "src", "story",
+  "handl-packages", "members", "modules", "packages", "paper", "paradigm",
+  "project", "public", "research", "scripts", "specs", "src", "story",
   "strategy", "tests", "vendor", "workflows", "xtask",
 ]
