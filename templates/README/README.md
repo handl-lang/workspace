@@ -43,7 +43,7 @@ specialized sub-template when a prefix grows variants (`tool.md` →
 - `compile-*` → `tool-compile-*` (8 repos)
 - `slidev-theme` → `slidev-theme-handl`
 - `mlopt` → `research-mlopt`
-- `host-tensor` → renamed `exec-tensor` (engine family via `exec-*`,
+- `host-tensor` → renamed `lib-tensor-native` (engine family via `exec-*`,
   2026-11 cohort)
 - `kit-*`/`lib-*` Rust+Python crates → `.hnl`-only packages; bindings via
   `tool-codegen-*` where needed — refactor planned on demand, not big-bang
