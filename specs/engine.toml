@@ -19,6 +19,11 @@ cover_dirs = [
   "laws",   # engine-eqsat law files
 ]
 
+# Rust floor: every engine-family manifest declares its MSRV
+# (fleet standard rust-version = "1.85", edition 2024).
+[path."Cargo.toml"]
+regex = '(?m)^rust-version'
+
 # [patch.*] sources must stay org-local — enforced semantically by
 # the `cargo` provider (regex can't express "github.com/handl-lang
 # only"); the sanctioned sibling-dev-link convention

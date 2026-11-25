@@ -72,3 +72,17 @@ severity   = "warn"
 # --- predicates (mimus-spec phase 2) ---
 [path."LICENSE"]
 contains = "MIT"        # org license is MIT; Apache-2.0 mentions drift
+
+# bupha runner must be the gate.yaml peregrin campaign — ci.sh is
+# retired fleet-wide; a `bash ci.sh`/`bash scripts/ci.sh` cmd is the
+# stale-runner drift this catches. Known false positive: docs/'s
+# bupha.toml is a deploy-watch manifest, not a gate runner (warn-only
+# until specs learn per-repo exemptions).
+[path."bupha.toml"]
+regex = 'peregrin campaign'
+
+# AGENTS.md must carry real guide sections, not just the myco
+# agent-awareness boilerplate. Rust regex: no lookahead, so this
+# enumerates the section names the fleet actually uses.
+[path."AGENTS.md"]
+regex = '(?m)^## (Layout|Contract|Conventions|Verification|Build|Usage|Development|Overview|Architecture|Commands|Testing)'
