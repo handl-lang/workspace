@@ -4,8 +4,8 @@
 # pyproject+uv.lock, no Cargo.toml). kit-pkg is the only Rust kit
 # and stays kit-only; the other kit-* python repos were renamed
 # (kit-torch→mlopt-torch, kit-discovery→mlopt-discovery,
-# kit-carriers→mlopt-carriers, host-tensor→lib-tensor-native — the last
-# now lands in handl/engine via `exec-*`). kit-kernel-ir was deleted
+# kit-carriers→mlopt-carriers, host-tensor→exec-tensor→lib-tensor-native
+# — the last now lands in handl/lib via `lib-*`). kit-kernel-ir was deleted
 # (empty meta-package over lib-kernel-ir + lib-triton-qgemv). The
 # remaining kit-python names are listed explicitly because `kit-*`
 # would wrongly pull in kit-pkg; when the cohort relocates out of

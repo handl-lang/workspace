@@ -1,6 +1,6 @@
 # handl/host — host, host-* distribution repos (binaries, servers).
-# host-tensor was renamed lib-tensor-native and reclassified into
-# handl/engine (matches `exec-*`) — no host-* member pending.
+# host-tensor → exec-tensor → lib-tensor-native (atom provider,
+# handl/lib family via `lib-*`) — no host-* member pending.
 
 extends = "base.toml"
 

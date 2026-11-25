@@ -12,7 +12,7 @@ after rename, and git URLs in manifests can stay on old names until then.
 | `compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | `tool-compile-{cuda,dot,handl,js,llvm,sexp,term,triton}` | 8 |
 | `slidev-theme` | `slidev-theme-handl` | 1 |
 | `mlopt` | `research-mlopt` | 1 |
-| `host-tensor` | `lib-tensor-native` (done — engine family via `exec-*`) | 1 |
+| `exec-tensor` | `lib-tensor-native` (done — atom provider, `lib-char-native` convention; handl/lib family) | 1 |
 | `kit-torch` | `mlopt-torch` (done) | 1 |
 | `kit-discovery` | `mlopt-discovery` (done) | 1 |
 | `kit-carriers` | `mlopt-carriers` (done) | 1 |
@@ -56,7 +56,10 @@ sibling checkout must be updated in the same wave:
 1. `sdkgen-*` → `tool-sdkgen-*` (5) — smallest, validates the procedure.
 2. `compile-*` → `tool-compile-*` (8).
 3. `slidev-theme` → `slidev-theme-handl`, `mlopt` → `research-mlopt` (1 each).
-4. `host-tensor` — done: renamed `lib-tensor-native` (engine family).
+4. `exec-tensor` — done: renamed `lib-tensor-native` (P-013 atom-provider
+   convention, `lib-char-native` precedent; `handl/lib` family). Crate
+   `handl-host-tensor` and PyO3 module `handl_host_tensor` names kept —
+   repo name is distribution, crate name is API surface.
 
 ## Deferred to T-111 (needs user go)
 
