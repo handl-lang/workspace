@@ -60,6 +60,7 @@ cover_dirs = [
   "packages", "paper", "paradigm", "project", "public", "research",
   "rules", "scripts", "specs", "src", "story", "strategy", "tasks",
   "templates", "tests", "vendor", "workflows", "xtask",
+  "hnl-ext-tensor",   # lib-tensor-native: the tensor.* PyO3 extension crate dir
 ]
 
 # --- providers ---

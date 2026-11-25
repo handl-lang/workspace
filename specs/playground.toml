@@ -1,0 +1,16 @@
+# handl/playground — playground repo file coverage.
+#
+# `fs` and `json_lib` are tracked symlinks into ../host/handl-packages/
+# for local .hnl development — content, not strays. Declared here so
+# the base cover list stays fleet-generic.
+
+extends = "base.toml"
+
+family   = "handl/playground"
+match    = ["playground"]
+severity = "warn"
+
+cover = [
+  "fs",
+  "json_lib",
+]
