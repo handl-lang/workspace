@@ -11,6 +11,6 @@ match    = ["kit-*"]
 severity = "warn"
 
 cover = [
-  "vocab",   # mlopt-discovery's root vocab manifest (extensionless data file;
-             # renamed out of kit-*, kept for history — no kit-* member has it now)
+  # "vocab", # kit-discovery's root vocab manifest — covered by the
+            # kit-discovery.toml spec instead (kit-* members differ)
 ]

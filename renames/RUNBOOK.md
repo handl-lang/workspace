@@ -16,6 +16,11 @@ after rename, and git URLs in manifests can stay on old names until then.
 | `kit-torch` | `mlopt-torch` (done) | 1 |
 | `kit-discovery` | `mlopt-discovery` (done) | 1 |
 | `kit-carriers` | `mlopt-carriers` (done) | 1 |
+| `mlopt-torch` | `kit-torch` (done — P3 completion, GH rename + remote + dep sweep) | 1 |
+| `mlopt-discovery` | `kit-discovery` (done) | 1 |
+| `mlopt-carriers` | `kit-carriers` (done) | 1 |
+| `mlopt-product` | `kit-product` (done) | 1 |
+| `mlopt-pipeline` | `kit-pipeline` (done; package stays `mlopt-pipeline`/`mlopt_pipeline` — product-facing name, kit-product precedent) | 1 |
 
 Crate/package names inside the repos do NOT change (e.g. `hnl-sdkgen-c`,
 `handl-compile-*`) — only repo dir names, git remotes, and references.

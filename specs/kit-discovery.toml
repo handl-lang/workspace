@@ -1,5 +1,5 @@
-# handl/python/mlopt-discovery — repo-specific override for
-# mlopt-discovery's `vocab/` tree (YAML language data: ast/grammar/
+# handl/python/kit-discovery — repo-specific override for
+# kit-discovery's `vocab/` tree (YAML language data: ast/grammar/
 # ops/laws/…). `vocab` is this repo's special thing, not a python
 # convention — kept out of python.toml's cover_dirs on purpose.
 #
@@ -10,8 +10,8 @@
 
 extends = "base.toml"
 
-family   = "handl/python/mlopt-discovery"
-match    = ["mlopt-discovery"]
+family   = "handl/python/kit-discovery"
+match    = ["kit-discovery"]
 severity = "fail"
 
 files = [

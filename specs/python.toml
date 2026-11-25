@@ -1,22 +1,22 @@
 # handl/python — uv/python repos (eqsat, gamekit, discoverykit,
-# mlopt-*, research-*, kernelopt) PLUS the transitional kit-python
-# cohort (kit-{cuda,host-tensor} — all verified
+# research-*, kernelopt) PLUS the kit-python cohort — the mlopt-*
+# repos were renamed back to kit-* (kit-{torch,discovery,carriers,
+# product,pipeline}, joining kit-{cuda,host-tensor}; all verified
 # pyproject+uv.lock, no Cargo.toml). kit-pkg is the only Rust kit
-# and stays kit-only; the other kit-* python repos were renamed
-# (kit-torch→mlopt-torch, kit-discovery→mlopt-discovery,
-# kit-carriers→mlopt-carriers, host-tensor→exec-tensor→lib-tensor-native
-# — the last now lands in handl/lib via `lib-*`). kit-kernel-ir was deleted
-# (empty meta-package over lib-kernel-ir + lib-triton-qgemv). The
-# remaining kit-python names are listed explicitly because `kit-*`
-# would wrongly pull in kit-pkg; when the cohort relocates out of
-# `kit-*` (templates/README pending decision) update this list.
+# and stays kit-only; kit-kernel-ir was deleted (empty meta-package
+# over lib-kernel-ir + lib-triton-qgemv). The kit-python names are
+# listed explicitly because `kit-*` would wrongly pull in kit-pkg;
+# when the cohort relocates out of `kit-*` (templates/README pending
+# decision) update this list.
 
 extends = "base.toml"
 
 family   = "handl/python"
-match    = ["eqsat", "gamekit", "discoverykit", "mlopt-*",
+match    = ["eqsat", "gamekit", "discoverykit",
             "research-*", "kernelopt",
-            "kit-cuda", "kit-host-tensor"]
+            "kit-cuda", "kit-host-tensor", "kit-torch",
+            "kit-discovery", "kit-carriers", "kit-product",
+            "kit-pipeline"]
 severity = "fail"
 
 files = [
