@@ -41,3 +41,44 @@ Verify before deleting a local clone: no unpushed commits on any
 branch (`git log --branches --not --remotes`), `status -uall`
 clean (incl. `.env*`), `stash list` empty, `worktree list` (linked
 checkouts elsewhere), no nested `.git` dirs, no extra remotes.
+
+## What this repo is
+
+Org-level home for `handl-lang/*` repos: templates, vendored gate
+tooling, shared agent automation, and the gate-workflow bundle source.
+It is meta — it ships conventions and CI wiring into sibling repos, it
+does not build a product.
+
+## Layout
+
+| path | role |
+| --- | --- |
+| `templates/README/` | README skeletons per repo family (`engine`, `tool-compile`, `tool-codegen`, `tool`, `lib`, `kit`, `host`, `pitch`, `python`, `bare` + transitional variants) and the index with rules |
+| `templates/xtask/` | vendored `cargo xtask` crate copied into Rust repos |
+| `templates/gate.py` | vendored python gate (`uv run scripts/gate.py`) |
+| `skills/` | org-wide agent skills (`workspace-structure`, `write-adr`); consumed via `.agents/skills/` symlinks or copies in each repo |
+| `scripts/` | cross-repo shell/python gates (`check-engines`, `clone-gate`, `manifest-gate`, `prune-patches`, `sweep-deps`) |
+| `workflows/` | the `handl-gates`/`tamias` campaign bundle source (`gate.yaml` is this repo's own per-push gate; `gates/`, `lib/`, `repo-verify/`, `handl-verify/`, `mlopt-nightly/` are the campaign definitions) |
+| `renames/RUNBOOK.md` | repo rename procedure + deferred GH ops |
+| `audit-2026-11-20.md` | repo-family consistency audit (reference) |
+| `specs/` | org specs |
+
+## Conventions
+
+- Canonical README rules live in `templates/README/README.md`:
+  MIT-only, no provenance, docs = bare link, manifest metadata
+  requirements.
+- Sibling repos vendor `templates/xtask` + `workflows/gate.yaml` — when
+  the gate shape changes, update the template AND re-vendor into the
+  affected repos (fleet-wide mechanical change → script it).
+- See `templates/README/README.md` for the canonical rules and the
+  family index.
+
+## Verification
+
+```bash
+bash scripts/check-engines.sh     # engine-family consistency checks
+bash scripts/manifest-gate.sh     # manifest metadata gate
+bash scripts/clone-gate.sh        # fresh-clone build check
+python3 scripts/prune-patches.py  # [patch] table hygiene
+```
