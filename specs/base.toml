@@ -76,15 +76,13 @@ contains = "MIT"        # org license is MIT; Apache-2.0 mentions drift
 
 # bupha runner must be the gate.yaml peregrin campaign — ci.sh is
 # retired fleet-wide; a `bash ci.sh`/`bash scripts/ci.sh` cmd is the
-# stale-runner drift this catches. docs/'s bupha.toml is a
-# deploy-watch manifest, not a gate runner — interim fix: its header
-# note names the `peregrin campaign` gate so the substring matches.
-# Proper fix landed in mimus-spec (`except` repo-name globs on path
-# tables) — adopt `except = ["docs"]` here once a mimus release
-# ships it; older binaries hard-error on the unknown key and
-# disable the leg.
+# stale-runner drift this catches. `except` exempts docs/: its
+# bupha.toml is a deploy-watch manifest (ci/trigger.sh), not a gate
+# runner — mimus-spec `except` shipped in mimus 1.0.0 (local deploy;
+# pre-1.0.0 binaries hard-error on the unknown key).
 [path."bupha.toml"]
-regex = 'peregrin campaign'
+regex  = 'peregrin campaign'
+except = ["docs"]
 
 # AGENTS.md must carry real guide sections, not just the myco
 # agent-awareness boilerplate. Rust regex: no lookahead, so this
