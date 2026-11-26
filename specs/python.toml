@@ -1,7 +1,7 @@
 # handl/python — uv/python repos (eqsat, gamekit, discoverykit,
 # research-*, kernelopt) PLUS the kit-python cohort — the mlopt-*
 # repos were renamed back to kit-* (kit-{torch,discovery,carriers,
-# product,pipeline}, joining kit-{cuda,host-tensor}; all verified
+# product,pipeline}, joining kit-{cuda}; all verified
 # pyproject+uv.lock, no Cargo.toml). kit-pkg is the only Rust kit
 # and stays kit-only; kit-kernel-ir was deleted (empty meta-package
 # over lib-kernel-ir + lib-triton-qgemv). The kit-python names are
@@ -14,7 +14,7 @@ extends = "base.toml"
 family   = "handl/python"
 match    = ["eqsat", "gamekit", "discoverykit",
             "research-*", "kernelopt",
-            "kit-cuda", "kit-host-tensor", "kit-torch",
+            "kit-cuda", "kit-torch",
             "kit-discovery", "kit-carriers", "kit-product",
             "kit-pipeline"]
 severity = "fail"
