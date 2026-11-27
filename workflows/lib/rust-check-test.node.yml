@@ -1,0 +1,86 @@
+# lib/rust-check-test.node.yml — the ci.sh "check + test" lane.
+#
+# Faithful port of the `ci` stage of a repo's scripts/ci.sh for repos
+# whose gate is cargo check + cargo test ONLY (no fmt/clippy/doc —
+# those belong to lib/rust-gate.node.yml). Carries the ci.sh env
+# contract the family floor doesn't: memory-capped test threads,
+# build-job cap, CARGO_NET_GIT_FETCH_WITH_CLI, sccache wrapper, and
+# the HANDL_TOKEN/BUPHA_TOKEN git insteadOf auth — all env-driven so
+# the same fragment serves main checkouts and detached worktrees.
+#
+# Parent owns the event contract — declare `on:`/`emits:` and
+# `params.emit` at the include site; override `params.repo`,
+# `params.results`, `params.jobs`, `params.build_jobs`,
+# `params.env_file`, `params.timeout` as needed. When `params.results`
+# is set, every run appends {"family","repo","rc","secs"} to that
+# JSONL file.
+#
+#   - include: tamias:handl-gates@<ver>//lib/rust-check-test.node.yml
+#     id: gate.run
+#     on: [ensure.done]
+#     emits: [gate.done, gate.failed]
+#     params:
+#       repo: "${config.gate.repo}"
+#       results: "${config.gate.results}"
+#       emit: {"0": gate.done, default: gate.failed}
+#
+# params.jobs / params.build_jobs — cargo test threads / build -j.
+# "auto" (default) reads CI_JOBS / CI_BUILD_JOBS env (themselves
+# defaulting to 2 — the fleet box is memory-bound; do NOT raise
+# without checking free RAM). params.env_file — shell env file
+# sourced before the legs (ensure-siblings.node.yml drops
+# CARGO_TARGET_DIR there): "auto" = `$(dirname <repo>)/.gate-env/
+# <checkout>.env`, a literal path overrides, "" skips sourcing.
+id: gate.rust-check-test
+driver: shell
+params:
+  repo: ""
+  results: ""
+  jobs: "auto"
+  build_jobs: "auto"
+  env_file: "auto"
+  timeout: 7200
+  # Literal block (|), NOT folded (>): the shell comments below must
+  # stay on their own lines — under >- folding they would join the
+  # script into one line and `#` would comment out the rest of it.
+  cmd: |
+    set -uo pipefail;
+    REPO="${params.repo}";
+    RESULTS="${params.results}";
+    START=$(date +%s);
+    cd "$REPO" && REPO="$(pwd)" || { echo "no such directory: ${params.repo}"; exit 1; };
+    EF="${params.env_file}"; [ "$EF" = "auto" ] && EF="$(dirname "$REPO")/.gate-env/$(basename "$REPO").env"; [ -z "$EF" ] || [ ! -f "$EF" ] || . "$EF";
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin";
+    J="${params.jobs}"; [ "$J" = "auto" ] && J="${CI_JOBS:-2}";
+    BJ="${params.build_jobs}"; [ "$BJ" = "auto" ] && BJ="${CI_BUILD_JOBS:-2}";
+    export CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0;
+    # Cargo must shell out to git so the insteadOf credential rewrite
+    # and ssh/config auth apply to private git deps.
+    export CARGO_NET_GIT_FETCH_WITH_CLI=true CARGO_BUILD_JOBS="$BJ" RUST_TEST_THREADS="$J";
+    # Private git deps: same insteadOf trick as ci.sh's setup_auth,
+    # scoped to this process tree via GIT_CONFIG_* env — never touches
+    # ~/.gitconfig.
+    TOK="${HANDL_TOKEN:-${BUPHA_TOKEN:-}}";
+    if [ -n "$TOK" ]; then
+      export GIT_CONFIG_COUNT=1
+      GIT_CONFIG_KEY_0="url.https://x-access-token:${TOK}@github.com/.insteadOf"
+      GIT_CONFIG_VALUE_0="https://github.com/"
+    fi;
+    # sccache — optional shared backend; the env file is the same one
+    # the dagger runner mounted as a secret.
+    if command -v sccache >/dev/null 2>&1; then
+      export RUSTC_WRAPPER=sccache;
+      [ -f "$HOME/.config/bupha/sccache-env" ] && { set -a; . "$HOME/.config/bupha/sccache-env"; set +a; };
+    fi;
+    cargo fetch &&
+    cargo check --workspace --all-targets &&
+    cargo test --workspace --no-fail-fast -- --test-threads="$J";
+    rc=$?;
+    if [ -n "$RESULTS" ]; then
+      esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g');
+      printf '{"family":"rust","repo":"%s","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true;
+    fi;
+    exit $rc
+  emit:
+    "0": gate.done
+    default: gate.failed
